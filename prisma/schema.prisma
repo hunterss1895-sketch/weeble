@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  purchases    Purchase[]
+  devices      Device[]
+  adRewards    AdReward[]
+  usageRecords UsageRecord[]
+}
+
+model Plan {
+  id           String     @id @default(cuid())
+  providerId   String
+  name         String
+  region       String
+  countryCode  String
+  dataMb       Int
+  validityDays Int
+  priceCents   Int
+  currency     String     @default("USD")
+  description  String?
+  popular      Boolean    @default(false)
+  isUs         Boolean    @default(false)
+  features     String     @default("[]")
+  createdAt    DateTime   @default(now())
+  purchases    Purchase[]
+}
+
+model Purchase {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String
+  status          String   @default("active")
+  activationCode  String?
+  qrPayload       String?
+  iccid           String?
+  dataRemainingMb Int
+  dataTotalMb     Int
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  plan            Plan     @relation(fields: [planId], references: [id])
+  devices         Device[]
+}
+
+model Device {
+  id         String    @id @default(cuid())
+  userId     String
+  purchaseId String?
+  nickname   String
+  iccid      String
+  status     String    @default("active")
+  installedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id])
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+}
+
+model AdReward {
+  id         String   @id @default(cuid())
+  userId     String
+  dataMb     Int
+  adProvider String   @default("demo")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model UsageRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  mbUsed    Int
+  source    String
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
