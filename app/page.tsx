@@ -9,7 +9,9 @@ export default async function HomePage() {
   const provider = getEsimProvider();
   const meta = providerMeta();
   const plans = await provider.listPlans();
-  const usPlans = plans.filter((p) => p.isUs).slice(0, 3);
+  const usOnly = plans.filter((p) => p.isUs);
+  // If no US plans from provider, show first 3 plans as homepage fallback.
+  const usPlans = (usOnly.length ? usOnly : plans).slice(0, 3);
 
   return (
     <div className="space-y-16">

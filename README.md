@@ -4,11 +4,17 @@ Weeble is a US-first eSIM marketplace and customer dashboard with budget retail 
 
 ## Providers
 
-- **Firsty** (recommended) — free self-serve sandbox, real test eSIMs; production is pay-per-MB. See [builders.firsty.app](https://builders.firsty.app) and the [eSM API](https://builders.firsty.app/esim-api).
+- **Firsty** (recommended) — real eSIM provider via official dashboard API at [api.firsty.app](https://api.firsty.app).
 - **MockProvider** (default) — zero-cost local demo when no Firsty key is set. Shows a Demo badge.
 - **DepinSim** (legacy / optional) — kept for compatibility; demoted. Prefer Firsty.
 
-Flow with Firsty: Authenticate → Provision → Activate → Manage (JWT auth, provision QR, activate on device, top-up/suspend via API).
+### Firsty API flow
+
+1. `POST /oauth/token` with JSON `{ grant_type, client_id, client_secret }` → `access_token`
+2. `GET /v1/bundles` → map bundles to plans
+3. Purchase: `POST /v1/sims` `{ bundle_id, customer_ref }` + `Idempotency-Key`, then `POST /v1/sims/{id}/activate`, then `GET /v1/sims/{id}`
+
+On any Firsty API failure Weeble falls back to MockProvider (never crashes). Homepage shows top US plans, or the first 3 plans if none are US-tagged.
 
 ## Pricing (very cheap for customers)
 
@@ -25,7 +31,7 @@ Ads-for-data remains free (75–150 MB per view, daily capped at 6).
 
 ### Owner cost model
 
-- **Mock / Firsty sandbox:** owner pays **$0** to develop and demo.
+- **Mock:** owner pays **$0** to develop and demo.
 - **Firsty production:** you pay Firsty flat per-MB wholesale; set retail just above cost so margins stay thin but positive.
 - Tune with `PRICE_MARKUP` (default `1.35`) and optional `FIRSTY_WHOLESALE_CENTS_PER_MB` (default ``0.25`). Seeded catalog prices are already hardcoded low.
 
@@ -42,15 +48,11 @@ Next.js App Router · TypeScript · Tailwind CSS · Prisma · SQLite
 5. Demo login: `demo@weeble.com` / `demo1234`
 6. `npm run build && npm start`
 
-## Get a free Firsty sandbox key
+## Configure Firsty
 
-1. Open https://builders.firsty.app ‒ **Get started free** (no credit card).
-2. Or run: `npx firsty init` (claims `FIRSTY_CLIENT_ID` & `FIRSTY_CLIENT_SECRET`).
-3. Put them in `.env`; set `PROVIDER}firsty` (or leave unset to auto-select when credentials exist).
-4. Sandbox default: `https://connect.test.firsty.app/api/v3`
-5. Production (pay-per-MB): `https://connect.firsty.app/api/v3` via Firsty sales.
-
-Docs: https://developers.firsty.app/
+1. Get client id/secret from your Firsty dashboard.
+2. Put them in `.env`; set `PROVIDER=firsty` (or leave unset to auto-select when credentials exist).
+3. Default base: `FIRSTY_API_BASE=https://api.firsty.app`
 
 ## Environment variables
 
@@ -61,13 +63,12 @@ Docs: https://developers.firsty.app/
 | `PROVIDER` | no | `mock` (default) / `firsty` / `depinsim` |
 | `FIRSTY_CLIENT_ID` | no* | OAuth2 client id from builders.firsty.app |
 | `FIRSTY_CLIENT_SECRET` | no* | OAuth2 client secret |
-| `FIRSTY_API_KEY` | no* | Optional pre-minted bearer / JWT  |
-| `FIRSTY_API_BASE` | no | Default sandbox API base |
+| `FIRSTY_API_BASE` | no | Default `https://api.firsty.app` |
 | `PRICE_MARKUP` | no | Retail markup over wholesale (default `1.35`) |
 | `FIRSTY_WHOLESALE_CENTS_PER_MB` | no | Approx wholesale cents/MB (default ``0.25`) |
 | `DEPINSIM_ACCESS_TOKEN` | no | Legacy DepinSim token (optional) |
 
-\* Firsty live mode needs either `FIRSTY_API_KEY` **or** both `FIRSTY_CLIENT_ID` + `FIRSTY_CLIENT_SECRET`. Without credentials, Weeble stays on MockProvider (Demo badge).
+* Firsty live mode needs both `FIRSTY_CLIENT_ID` and `FIRSTY_CLIENT_SECRET`. Without credentials, Weeble stays on MockProvider (Demo badge).
 
 ## License
 
