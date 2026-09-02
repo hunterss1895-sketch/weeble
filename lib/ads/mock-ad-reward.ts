@@ -7,9 +7,10 @@ function startOfUtcDay(d = new Date()) {
 
 export class MockAdRewardProvider implements AdRewardProvider {
   readonly name = 'DemoRewardedVideo';
-  readonly dailyCap = 5;
-  readonly minMb = 50;
-  readonly maxMb = 100;
+  readonly dailyCap = 6;
+  /** Friendlier rewards (still daily capped). */
+  readonly minMb = 75;
+  readonly maxMb = 150;
 
   async canWatch(userId: string) {
     const since = startOfUtcDay();

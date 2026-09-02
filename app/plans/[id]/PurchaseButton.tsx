@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 
-export function PurchaseButton({ planId }: { planId: string }) {
+export function PurchaseButton({ planId, priceCents = 1 }: { planId: string; priceCents?: number }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const isFree = priceCents <= 0;
 
   async function buy() {
     setLoading(true);
@@ -32,7 +33,7 @@ export function PurchaseButton({ planId }: { planId: string }) {
   return (
     <div>
       <Button className="w-full" size="lg" onClick={buy} disabled={loading}>
-        {loading ? 'Activating…' : 'Buy & get QR'}
+        {loading ? 'Activating…' : isFree ? 'Get free starter QR' : 'Buy & get QR'}
       </Button>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>

@@ -14,6 +14,7 @@ export function PlanCard({ plan }: { plan: EsimPlan }) {
           <h3 className="mt-1 text-lg font-semibold text-slate-900">{plan.name}</h3>
         </div>
         <div className="flex flex-col items-end gap-1">
+          {plan.priceCents <= 0 && <Badge tone="green">Free</Badge>}
           {plan.popular && <Badge tone="green">Popular</Badge>}
           {plan.isUs ? <Badge>US</Badge> : <Badge tone="slate">Intl</Badge>}
         </div>

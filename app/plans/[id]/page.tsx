@@ -22,6 +22,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         </Link>
         <div className="flex flex-wrap gap-2">
           {plan.isUs ? <Badge>United States</Badge> : <Badge tone="slate">{plan.region}</Badge>}
+          {plan.priceCents <= 0 && <Badge tone="green">Free</Badge>}
           {plan.popular && <Badge tone="green">Popular</Badge>}
         </div>
         <h1 className="text-3xl font-bold text-slate-900">{plan.name}</h1>
@@ -44,7 +45,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         <p className="text-3xl font-bold text-weeble-700">{formatPrice(plan.priceCents, plan.currency)}</p>
         <div className="mt-6">
           {session ? (
-            <PurchaseButton planId={plan.id} />
+            <PurchaseButton planId={plan.id} priceCents={plan.priceCents} />
           ) : (
             <Link
               href={`/auth?next=/plans/${plan.id}`}
@@ -55,7 +56,9 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
           )}
         </div>
         <p className="mt-3 text-xs text-slate-400">
-          Demo checkout — no real payment. You&apos;ll get a QR + ICCID instantly.
+          {plan.priceCents <= 0
+            ? 'Free starter — claim a demo QR, then earn more MB via Watch ads.'
+            : 'Checkout provisions an eSIM QR + ICCID. Mock/sandbox stays free for the owner.'}
         </p>
       </Card>
     </div>

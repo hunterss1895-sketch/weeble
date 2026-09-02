@@ -1,5 +1,5 @@
 /**
- * DepinSimProvider — shaped for the DePinSim eSIM API.
+ * DepinSimProvider — LEGACY optional provider. Prefer Firsty (lib/providers/firsty.ts).
  * Docs: https://depinsim-api.gitbook.io/depinsim-api
  * Auth: Bearer DEPINSIM_ACCESS_TOKEN (request via DePinSim support).
  *

@@ -62,7 +62,7 @@ export function AdPlayer({
   return (
     <div className="rounded-2xl border border-dashed border-weeble-200 bg-weeble-50/50 p-6 text-center">
       <p className="text-sm text-slate-600">
-        Simulated 15–30s rewarded video. Earn <strong>50–100 MB</strong> per view.
+        Simulated 15–30s rewarded video. Earn <strong>75–150 MB</strong> per view.
       </p>
       <p className="mt-1 text-xs text-slate-500">{remaining} rewards left today</p>
       <Button className="mt-4" disabled={disabled || remaining <= 0} onClick={() => setPlaying(true)} size="lg">
