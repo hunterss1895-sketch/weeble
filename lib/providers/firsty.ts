@@ -1,5 +1,6 @@
 /**
- * FirstyProvider — primary real eSIM provider (recommended).
+ * FirstyProvider — optional legacy eSIM provider (api.firsty.app often 404).
+ * Prefer EsimCardProvider for custom SPN reseller branding.
  *
  * Official dashboard API (api.firsty.app):
  *   POST /oauth/token          JSON { grant_type, client_id, client_secret } → access_token

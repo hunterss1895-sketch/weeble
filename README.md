@@ -1,75 +1,61 @@
 # Weeble - US-first eSIM marketplace
 
-Weeble is a US-first eSIM marketplace and customer dashboard with budget retail pricing and a free try path (ads + Free Starter plan).
+Weeble is a US-first eSIM marketplace and customer dashboard with budget retail pricing and a free try path (ads + Free Starter plan). Brand eSIMs with a **custom SPN** so the phone shows **Weeble**.
 
 ## Providers
 
-- **Firsty** (recommended) — real eSIM provider via official dashboard API at [api.firsty.app](https://api.firsty.app).
-- **MockProvider** (default) — zero-cost local demo when no Firsty key is set. Shows a Demo badge.
-- **DepinSim** (legacy / optional) — kept for compatibility; demoted. Prefer Firsty.
+- **eSIMCard** (recommended) — reseller API with **custom SPN**. Free setup; you only pay when you sell. Apply at [esimcard.com/partners](https://esimcard.com/partners/) (NDA, then API token). Enable **Custom SPN** in the partner portal and set it to **Weeble**. Sandbox: `https://sandbox.esimcard.com/api/developer/` · Live: `https://portal.esimcard.com/api/developer/`. Auth: `Authorization: Bearer <ESIMCARD_TOKEN>`. First call `GET check-token` returns an `extension`; subsequent calls use `base + extension + /`.
+- **MockProvider** (default) — zero-cost local demo when no eSIMCard token is set. Shows a Demo badge. Activation strings are branded Weeble. Keep `PROVIDER=mock` on the VPS until you drop in a token.
+- **Telnyx** (optional) — whitelabel eSIM reseller (`product: "whitelabel"`). Trial accounts cannot purchase eSIMs.
+- **Firsty** (optional / legacy) — `api.firsty.app` has been unreliable (404). Prefer eSIMCard for SPN.
+- **DepinSim** (legacy / optional) — kept for compatibility.
 
-### Firsty API flow
+### eSIMCard purchase flow
 
-1. `POST /oauth/token` with JSON `{ grant_type, client_id, client_secret }` → `access_token`
-2. `GET /v1/bundles` → map bundles to plans
-3. Purchase: `POST /v1/sims` `{ bundle_id, customer_ref }` + `Idempotency-Key`, then `POST /v1/sims/{id}/activate`, then `GET /v1/sims/{id}`
+1. List packages (`packages`, `packages/country`, `packages/global`) and map to Weeble plans with a thin retail markup.
+2. On paid purchase: `POST package/purchase` with `{ package_type_id, sim_applied: true }`.
+3. Read ICCID / QR / activation from the response or `GET my-esims/:id`.
+4. Usage via `GET my-sim/:id/usage`, else local ledger.
+5. On missing token or API errors fall back to MockProvider (never crashes).
 
-On any Firsty API failure Weeble falls back to MockProvider (never crashes). Homepage shows top US plans, or the first 3 plans if none are US-tagged.
+SPN on device / branding = `ESIMCARD_SPN` (default Weeble). Enable Custom SPN in the eSIMCard partner portal.
 
-## Pricing (very cheap for customers)
+## Pricing
 
-| Plan | Data / validity | Retail |
-|------|--------------|-------|
-| Free Starter | 100 MB / 3 days | **Free** (ads / demo unlock) |
-| USA Lite | 1 GB / 7 days | ~$1.99 |
-| USA Traveler | 3 GB / 15 days | ~$3.99 |
-| USA Month | 5 GB / 30 days | ~$5.99 |
-| USA Power | 10 GB / 30 days | ~$9.99 |
-| International | 2∝5 GB packs | ~$2.49–$12 |
-
-Ads-for-data remains free (75–150 MB per view, daily capped at 6).
-
-### Owner cost model
-
-- **Mock:** owner pays **$0** to develop and demo.
-- **Firsty production:** you pay Firsty flat per-MB wholesale; set retail just above cost so margins stay thin but positive.
-- Tune with `PRICE_MARKUP` (default `1.35`) and optional `FIRSTY_WHOLESALE_CENTS_PER_MB` (default ``0.25`). Seeded catalog prices are already hardcoded low.
+Budget US and international packs; Free Starter via ads. Mock is free for the owner; eSIMCard is pay-when-you-sell reseller with custom SPN.
 
 ## Stack
 
-Next.js App Router · TypeScript · Tailwind CSS · Prisma · SQLite
+Next.js App Router, TypeScript, Tailwind CSS, Prisma, SQLite
 
-## Quick start
+## Configure eSIMCard (go live / custom SPN)
 
-1. `npm install`
-2. `cp .env.example .env`
-3. `npx prisma db push && npm run db:seed`
-4. `npm run dev` → http://localhost:3000
-5. Demo login: `demo@weeble.com` / `demo1234`
-6. `npm run build && npm start`
+1. Apply at https://esimcard.com/partners/ — sign NDA, get API token (setup is free; pay when you sell).
+2. In the partner portal, enable **Custom SPN** and set it to **Weeble**.
+3. Set `ESIMCARD_TOKEN`, `ESIMCARD_SANDBOX=true` (sandbox) or `false` (live), `ESIMCARD_SPN=Weeble`.
+4. Set `PROVIDER=esimcard` (or leave unset — auto-selects when token is present).
+5. Restart the app.
 
-## Configure Firsty
-
-1. Get client id/secret from your Firsty dashboard.
-2. Put them in `.env`; set `PROVIDER=firsty` (or leave unset to auto-select when credentials exist).
-3. Default base: `FIRSTY_API_BASE=https://api.firsty.app`
+Until you have a token, keep `PROVIDER=mock`.
 
 ## Environment variables
 
 | Variable | Required | Description |
-|---------|--------|-----------|
-| `DATABASE_URL@ | yes | SQLite path, e.g. `file:/./dev.db` |
-| `AUTH_SECRET` | yes | Long random string for session JWT  |
-| `PROVIDER` | no | `mock` (default) / `firsty` / `depinsim` |
-| `FIRSTY_CLIENT_ID` | no* | OAuth2 client id from builders.firsty.app |
-| `FIRSTY_CLIENT_SECRET` | no* | OAuth2 client secret |
-| `FIRSTY_API_BASE` | no | Default `https://api.firsty.app` |
-| `PRICE_MARKUP` | no | Retail markup over wholesale (default `1.35`) |
-| `FIRSTY_WHOLESALE_CENTS_PER_MB` | no | Approx wholesale cents/MB (default ``0.25`) |
-| `DEPINSIM_ACCESS_TOKEN` | no | Legacy DepinSim token (optional) |
+|--------|--------|-----------|
+| DATABASE_URL | yes | SQLite path |
+| AUTH_SECRET | yes | Session JWT secret |
+| PROVIDER | no | mock (default) / esimcard / telnyx / firsty / depinsim |
+| ESIMCARD_TOKEN | no* | eSIMCard Bearer token from partner portal |
+| ESIMCARD_SANDBOX | no | `true` (default) sandbox, `false` live portal |
+| ESIMCARD_SPN | no | Custom SPN brand (default Weeble) |
+| TELNYX_API_KEY | no | Telnyx Bearer token (optional) |
+| TELNYX_WHITELABEL_NAME | no | Telnyx SPN (default Weeble) |
+| WEEBLE_SPN | no | Alias for SPN / mock branding |
+| FIRSTY_CLIENT_ID / SECRET / API_BASE | no | Legacy Firsty |
+| DEPINSIM_ACCESS_TOKEN | no | Legacy |
 
-* Firsty live mode needs both `FIRSTY_CLIENT_ID` and `FIRSTY_CLIENT_SECRET`. Without credentials, Weeble stays on MockProvider (Demo badge).
+\* eSIMCard live mode needs `ESIMCARD_TOKEN` from the partner program.
 
 ## License
 
-Private / unpublished — all rights reserved.
+Private / unpublished -- all rights reserved.

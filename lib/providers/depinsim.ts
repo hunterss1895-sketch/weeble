@@ -1,5 +1,5 @@
 /**
- * DepinSimProvider — LEGACY optional provider. Prefer Firsty (lib/providers/firsty.ts).
+ * DepinSimProvider — LEGACY optional provider. Prefer EsimCardProvider (lib/providers/esimcard.ts) for custom SPN.
  * Docs: https://depinsim-api.gitbook.io/depinsim-api
  * Auth: Bearer DEPINSIM_ACCESS_TOKEN (request via DePinSim support).
  *

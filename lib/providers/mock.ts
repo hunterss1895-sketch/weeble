@@ -39,9 +39,19 @@ function randomIccid() {
   return s;
 }
 
+function weebleSpn(): string {
+  return (
+    process.env.ESIMCARD_SPN?.trim() ||
+    process.env.TELNYX_WHITELABEL_NAME?.trim() ||
+    process.env.WEEBLE_SPN?.trim() ||
+    'Weeble'
+  );
+}
+
 function makeQrPayload(activationCode: string) {
-  // LPA eSIM activation string (demo)
-  return `LPA:1$weeble.demo$` + activationCode;
+  // Demo LPA string branded with Weeble SPN (matches Telnyx whitelabel_name when live)
+  const spn = weebleSpn().replace(/\s+/g, '').toLowerCase() || 'weeble';
+  return `LPA:1$${spn}.demo$` + activationCode;
 }
 
 export class MockProvider implements EsimProvider {
