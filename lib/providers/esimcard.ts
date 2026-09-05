@@ -773,22 +773,15 @@ export class EsimCardProvider implements EsimProvider {
     }
   }
 
-  /** Optional Popular US strip: 5/10/50/Unlimited resolved to real package_type_ids. */
+  /** Optional Popular US strip: 5/10/50/Unlimited resolved to real package_type_ids.
+   * Does NOT trigger a full catalog fetch (homepage stays fast). Uses warm cache if present,
+   otherwise detail lookups for preferred package_type_ids only.
+   */
   async listPopularWeebleTiers(): Promise<EsimPlan[]> {
-    // Warm catalog first so preferred package_type_ids can be matched without detail spam.
-    if (!livePlansCache?.plans?.length) {
-      try {
-        await this.listPlans();
-      } catch {
-        /* ignore */
-      }
-    }
     const catalog = livePlansCache?.plans || [];
-
     const fromPreferred = WEEBLE_TIER_DEFS.map((tier) => {
       const hit = catalog.find((p) => p.providerId === tier.preferredPackageTypeId);
       if (!hit) return null;
-      // Approximate wholesale from retail÷markup for sticky price helper
       const markup = Number(process.env.PRICE_MARKUP || '2') || 2;
       const approxWholesale = Math.round(hit.priceCents / markup);
       return buildWeeblePlanFromResolved({

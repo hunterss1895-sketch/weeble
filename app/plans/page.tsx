@@ -9,7 +9,6 @@ export const revalidate = 0;
 export default async function PlansPage() {
   await ensureSeeded();
   const provider = getEsimProvider();
-  const plans = await provider.listPlans();
 
   let popular: Awaited<ReturnType<typeof provider.listPlans>> = [];
   let countries: Array<{ code: string; name: string }> = [];
@@ -24,7 +23,10 @@ export default async function PlansPage() {
     } catch {
       countries = [];
     }
-  } else {
+  }
+
+  const plans = await provider.listPlans();
+  if (!(provider instanceof EsimCardProvider)) {
     popular = plans.filter((p) => p.popular).slice(0, 4);
   }
 
