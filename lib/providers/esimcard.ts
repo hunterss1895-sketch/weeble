@@ -22,15 +22,30 @@
  *   PROVIDER=esimcard
  *
  * Apply: https://esimcard.com/partners/ (NDA → API token). Free setup; pay when you sell.
- * On missing token or API errors, fall back to MockProvider — never crashes.
+ * On missing token only, fall back to MockProvider. With a live token, listPlans never returns mock.
  */
 import dns from 'node:dns';
+import { createRequire } from 'node:module';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
 
-// VPS has IPv6; eSIMCard whitelist is IPv4-only — prefer A records so Node fetch works.
+// VPS has IPv6; eSIMCard whitelist is IPv4-only — force A / family 4 so Node fetch is not 403'd.
 dns.setDefaultResultOrder('ipv4first');
+try {
+  const require = createRequire(__filename);
+  const undici = require('undici') as {
+    Agent: new (opts: { connect: { family: number } }) => unknown;
+    setGlobalDispatcher: (dispatcher: unknown) => void;
+  };
+  undici.setGlobalDispatcher(new undici.Agent({ connect: { family: 4 } }));
+} catch (e) {
+  console.warn('[EsimCard] undici IPv4 agent unavailable', e);
+}
+
+/** Short in-memory cache of LIVE eSIMCard plans only (never mock). */
+let livePlansCache: { at: number; plans: EsimPlan[] } | null = null;
+const LIVE_CACHE_TTL_MS = 60_000;
 
 const SANDBOX_BASE = 'https://sandbox.esimcard.com/api/developer/';
 const LIVE_BASE = 'https://portal.esimcard.com/api/developer/';
@@ -368,9 +383,14 @@ export class EsimCardProvider implements EsimProvider {
   }
 
   async listPlans(): Promise<EsimPlan[]> {
-    try {
-      if (!this.token) return this.fallback.listPlans();
+    // No token → demo catalog only. With token, NEVER merge/return MockProvider plans.
+    if (!this.token) return this.fallback.listPlans();
 
+    if (livePlansCache && Date.now() - livePlansCache.at < LIVE_CACHE_TTL_MS) {
+      return livePlansCache.plans;
+    }
+
+    try {
       const PLAN_CAP = 150;
       const collected: Record<string, unknown>[] = [];
 
@@ -378,11 +398,10 @@ export class EsimCardProvider implements EsimProvider {
       const countryRes = await this.fetchPackagePages('packages/country', {}, 3);
       collected.push(...countryRes);
 
-      // Some portals expose US via packages?type / country filters
       if (collected.length < 20) {
         const usFiltered = await this.fetchPackagePages(
           'packages',
-          { page: 1, type: 'local', package_type: 'local' },
+          { type: 'local', package_type: 'local' },
           2
         );
         collected.push(...usFiltered);
@@ -391,13 +410,12 @@ export class EsimCardProvider implements EsimProvider {
       const globalRes = await this.fetchPackagePages('packages/global', {}, 3);
       collected.push(...globalRes);
 
-      // Always pull first pages of full catalog (live has thousands)
       const allPages = await this.fetchPackagePages('packages', {}, 4);
       collected.push(...allPages);
 
       if (!collected.length) {
-        console.warn('[EsimCard] no packages; mock fallback');
-        return this.fallback.listPlans();
+        console.warn('[EsimCard] no packages from API — returning empty (no mock leak)');
+        return livePlansCache?.plans ?? [];
       }
 
       const seen = new Set<string>();
@@ -405,29 +423,35 @@ export class EsimCardProvider implements EsimProvider {
       collected.forEach((raw, i) => {
         const mapped = this.mapPackage(raw, i);
         if (!mapped || seen.has(mapped.providerId)) return;
+        // Never surface seeded mock ids even if somehow present
+        if (mapped.providerId.startsWith('mock-') || mapped.id.startsWith('mock-')) return;
         seen.add(mapped.providerId);
         plans.push(mapped);
       });
 
       if (!plans.length) {
-        console.warn('[EsimCard] packages unmapped; mock fallback');
-        return this.fallback.listPlans();
+        console.warn('[EsimCard] packages unmapped — returning empty (no mock leak)');
+        return livePlansCache?.plans ?? [];
       }
 
       const ordered = this.preferUsGlobal(plans).slice(0, PLAN_CAP);
+      livePlansCache = { at: Date.now(), plans: ordered };
       console.info(
         `[EsimCard] live catalog: ${ordered.length} plans (from ${collected.length} raw, US=${ordered.filter((p) => p.isUs).length})`
       );
       return ordered;
     } catch (e) {
-      console.warn('[EsimCard] listPlans failed, mock fallback', e);
-      return this.fallback.listPlans();
+      console.warn('[EsimCard] listPlans failed — no mock fallback', e);
+      return livePlansCache?.plans ?? [];
     }
   }
 
   async getPlan(id: string): Promise<EsimPlan | null> {
     try {
       if (!this.token) return this.fallback.getPlan(id);
+
+      // Never resolve seeded mock plans while live eSIMCard is active
+      if (id.startsWith('mock-') || id.includes('mock-')) return null;
 
       // Strip optional esimcard- prefix
       const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
@@ -445,12 +469,10 @@ export class EsimCardProvider implements EsimProvider {
       }
 
       const plans = await this.listPlans();
-      const found = plans.find((p) => p.id === id || p.providerId === id || p.providerId === providerId);
-      if (found) return found;
-      return this.fallback.getPlan(id);
+      return plans.find((p) => p.id === id || p.providerId === id || p.providerId === providerId) || null;
     } catch (e) {
-      console.warn('[EsimCard] getPlan failed, mock fallback', e);
-      return this.fallback.getPlan(id);
+      console.warn('[EsimCard] getPlan failed (no mock fallback)', e);
+      return null;
     }
   }
 

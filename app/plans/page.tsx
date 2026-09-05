@@ -4,6 +4,9 @@ import { PlanCard } from '@/components/PlanCard';
 import { RegionFilter } from '@/components/RegionFilter';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function PlansPage({
   searchParams,
 }: {

@@ -7,6 +7,9 @@ import { formatData, formatPrice } from '@/lib/utils';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 import { PurchaseButton } from './PurchaseButton';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await ensureSeeded();
   const { id } = await params;

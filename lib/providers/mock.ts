@@ -58,12 +58,23 @@ export class MockProvider implements EsimProvider {
   readonly name = 'MockProvider';
   readonly isDemo = true;
 
+  private liveEsimCardActive(): boolean {
+    const forced = (process.env.PROVIDER || '').toLowerCase().trim();
+    return forced === 'esimcard' && Boolean(process.env.ESIMCARD_TOKEN?.trim());
+  }
+
   async listPlans(): Promise<EsimPlan[]> {
+    // Hard gate: never serve seeded demo catalog while eSIMCard is the active provider.
+    if (this.liveEsimCardActive()) {
+      console.warn('[MockProvider] listPlans blocked — PROVIDER=esimcard (no mock leak)');
+      return [];
+    }
     const plans = await prisma.plan.findMany({ orderBy: [{ isUs: 'desc' }, { popular: 'desc' }, { priceCents: 'asc' }] });
     return plans.map(mapPlan);
   }
 
   async getPlan(id: string): Promise<EsimPlan | null> {
+    if (this.liveEsimCardActive()) return null;
     const plan = await prisma.plan.findUnique({ where: { id } });
     return plan ? mapPlan(plan) : null;
   }

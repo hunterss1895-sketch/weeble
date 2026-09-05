@@ -4,6 +4,9 @@ import { PlanCard } from '@/components/PlanCard';
 import { Badge } from '@/components/ui';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function HomePage() {
   await ensureSeeded();
   const provider = getEsimProvider();

@@ -147,11 +147,25 @@ const plans = [
 
 let seeded = false;
 
+function useLiveEsimCard(): boolean {
+  const forced = (process.env.PROVIDER || '').toLowerCase().trim();
+  const hasToken = Boolean(process.env.ESIMCARD_TOKEN?.trim());
+  return forced === 'esimcard' && hasToken;
+}
+
 export async function ensureSeeded() {
   if (seeded) return;
   try {
-    for (const plan of plans) {
-      await prisma.plan.upsert({ where: { id: plan.id }, update: plan, create: plan });
+    if (useLiveEsimCard()) {
+      // Live eSIMCard storefront: purge seeded mock catalog so MockProvider cannot leak DB rows.
+      const deleted = await prisma.plan.deleteMany({ where: { id: { startsWith: 'mock-' } } });
+      if (deleted.count) {
+        console.info(`[seed] purged ${deleted.count} mock-* plans (PROVIDER=esimcard)`);
+      }
+    } else {
+      for (const plan of plans) {
+        await prisma.plan.upsert({ where: { id: plan.id }, update: plan, create: plan });
+      }
     }
     const demo = await prisma.user.findUnique({ where: { email: 'demo@weeble.com' } });
     if (!demo) {
