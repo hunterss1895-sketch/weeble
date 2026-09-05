@@ -24,9 +24,13 @@
  * Apply: https://esimcard.com/partners/ (NDA → API token). Free setup; pay when you sell.
  * On missing token or API errors, fall back to MockProvider — never crashes.
  */
+import dns from 'node:dns';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
+
+// VPS has IPv6; eSIMCard whitelist is IPv4-only — prefer A records so Node fetch works.
+dns.setDefaultResultOrder('ipv4first');
 
 const SANDBOX_BASE = 'https://sandbox.esimcard.com/api/developer/';
 const LIVE_BASE = 'https://portal.esimcard.com/api/developer/';
@@ -61,10 +65,12 @@ function retailCentsFromWholesale(wholesaleCents: number, dataMb: number): numbe
 function detectRegion(
   name: string,
   country?: string | null,
-  type?: string | null
+  type?: string | null,
+  scope?: string | null
 ): { region: string; isUs: boolean; countryCode: string } {
-  const hay = `${name || ''} ${country || ''} ${type || ''}`.toUpperCase();
+  const hay = `${name || ''} ${country || ''} ${type || ''} ${scope || ''}`.toUpperCase();
   const code = String(country || '').trim().toUpperCase();
+  const scopeLower = String(scope || type || '').toLowerCase();
 
   if (
     code === 'US' ||
@@ -72,11 +78,18 @@ function detectRegion(
     /\bUSA\b/.test(hay) ||
     /\bU\.?S\.?A\.?\b/.test(hay) ||
     /\bUNITED STATES\b/.test(hay) ||
-    /\bUS\b/.test(hay)
+    (/\bUS\b/.test(hay) && scopeLower !== 'global')
   ) {
     return { region: 'United States', isUs: true, countryCode: 'US' };
   }
-  if (/\bGLOBAL\b/.test(hay) || /\bWORLDWIDE\b/.test(hay) || code === 'GL' || code === 'WW' || type === 'global') {
+  if (
+    scopeLower === 'global' ||
+    /\bGLOBAL\b/.test(hay) ||
+    /\bWORLDWIDE\b/.test(hay) ||
+    code === 'GL' ||
+    code === 'WW' ||
+    type === 'global'
+  ) {
     return { region: 'Global', isUs: false, countryCode: code || 'GL' };
   }
   if (code === 'GB' || code === 'UK' || /\bUNITED KINGDOM\b/.test(hay) || /\bUK\b/.test(hay)) {
@@ -124,8 +137,21 @@ function dataMbFromPkg(p: Record<string, unknown>): number {
 }
 
 function validityDaysFromPkg(p: Record<string, unknown>): number {
-  const days = Number(p.validity_days ?? p.validityDays ?? p.days ?? p.duration ?? p.validity);
-  if (Number.isFinite(days) && days > 0) return Math.round(days);
+  const days = Number(
+    p.package_validity ??
+      p.validity_days ??
+      p.validityDays ??
+      p.days ??
+      p.duration ??
+      p.validity
+  );
+  if (Number.isFinite(days) && days > 0) {
+    const unit = String(p.package_validity_unit || p.validity_unit || p.unit || '').toLowerCase();
+    if (unit.includes('month')) return Math.round(days * 30);
+    if (unit.includes('week')) return Math.round(days * 7);
+    if (unit.includes('hour')) return Math.max(1, Math.round(days / 24));
+    return Math.round(days);
+  }
   return 7;
 }
 
@@ -269,6 +295,7 @@ export class EsimCardProvider implements EsimProvider {
   }
 
   private mapPackage(p: Record<string, unknown>, i: number): EsimPlan | null {
+    // Purchase API expects package_type_id — prefer explicit field, else package id.
     const id = String(
       p.package_type_id ?? p.packageTypeId ?? p.id ?? p.package_id ?? p.slug ?? ''
     );
@@ -282,10 +309,12 @@ export class EsimCardProvider implements EsimProvider {
       p.location ||
       (Array.isArray(p.countries) ? (p.countries as string[])[0] : '');
     const type = String(p.type || p.package_type || p.packageType || '');
+    const scope = String(p.scope || '');
     const { region, isUs, countryCode } = detectRegion(
       name,
       countryRaw ? String(countryRaw) : null,
-      type
+      type,
+      scope
     );
     const dataMb = dataMbFromPkg(p);
     const validityDays = validityDaysFromPkg(p);
@@ -320,23 +349,51 @@ export class EsimCardProvider implements EsimProvider {
     return plans;
   }
 
+  private async fetchPackagePages(
+    path: string,
+    query: Record<string, string | number | null | undefined>,
+    maxPages: number
+  ): Promise<Record<string, unknown>[]> {
+    const out: Record<string, unknown>[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+      const res = await this.api<unknown>(path, { query: { ...query, page } });
+      if (!res) break;
+      const batch = unwrapList(res);
+      if (!batch.length) break;
+      out.push(...batch);
+      // Stop early if page looks short (typical page size ~15–50)
+      if (batch.length < 10) break;
+    }
+    return out;
+  }
+
   async listPlans(): Promise<EsimPlan[]> {
     try {
       if (!this.token) return this.fallback.listPlans();
 
+      const PLAN_CAP = 150;
       const collected: Record<string, unknown>[] = [];
 
-      // Prefer country (US) + global endpoints, then general packages
-      const countryRes = await this.api<unknown>('packages/country', { query: { page: 1 } });
-      collected.push(...unwrapList(countryRes));
+      // Prefer US/local country catalog + global, then paginated full catalog.
+      const countryRes = await this.fetchPackagePages('packages/country', {}, 3);
+      collected.push(...countryRes);
 
-      const globalRes = await this.api<unknown>('packages/global', { query: { page: 1 } });
-      collected.push(...unwrapList(globalRes));
-
-      if (collected.length < 5) {
-        const all = await this.api<unknown>('packages', { query: { page: 1 } });
-        collected.push(...unwrapList(all));
+      // Some portals expose US via packages?type / country filters
+      if (collected.length < 20) {
+        const usFiltered = await this.fetchPackagePages(
+          'packages',
+          { page: 1, type: 'local', package_type: 'local' },
+          2
+        );
+        collected.push(...usFiltered);
       }
+
+      const globalRes = await this.fetchPackagePages('packages/global', {}, 3);
+      collected.push(...globalRes);
+
+      // Always pull first pages of full catalog (live has thousands)
+      const allPages = await this.fetchPackagePages('packages', {}, 4);
+      collected.push(...allPages);
 
       if (!collected.length) {
         console.warn('[EsimCard] no packages; mock fallback');
@@ -352,8 +409,16 @@ export class EsimCardProvider implements EsimProvider {
         plans.push(mapped);
       });
 
-      if (!plans.length) return this.fallback.listPlans();
-      return this.preferUsGlobal(plans);
+      if (!plans.length) {
+        console.warn('[EsimCard] packages unmapped; mock fallback');
+        return this.fallback.listPlans();
+      }
+
+      const ordered = this.preferUsGlobal(plans).slice(0, PLAN_CAP);
+      console.info(
+        `[EsimCard] live catalog: ${ordered.length} plans (from ${collected.length} raw, US=${ordered.filter((p) => p.isUs).length})`
+      );
+      return ordered;
     } catch (e) {
       console.warn('[EsimCard] listPlans failed, mock fallback', e);
       return this.fallback.listPlans();
