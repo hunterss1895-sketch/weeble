@@ -26,7 +26,7 @@ export function QrDisplay({ payload, size = 180 }: { payload: string; size?: num
 
   return (
     <div className="inline-flex flex-col items-center gap-2">
-      <svg width={size} height={size} className="rounded-lg border border-slate-200 bg-white p-2">
+      <svg width={size} height={size} className="rounded-lg border border-ink-800 bg-ink-900 p-2">
         {bits.map((on, i) => {
           if (!on) return null;
           const x = (i % cells) * cell;
@@ -34,7 +34,7 @@ export function QrDisplay({ payload, size = 180 }: { payload: string; size?: num
           return <rect key={i} x={x} y={y} width={cell} height={cell} fill="#0f172a" />;
         })}
       </svg>
-      <p className="max-w-[200px] break-all text-center font-mono text-[10px] text-slate-400">{payload}</p>
+      <p className="max-w-[200px] break-all text-center font-mono text-[10px] text-ink-500">{payload}</p>
     </div>
   );
 }

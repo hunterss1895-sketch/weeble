@@ -6,8 +6,8 @@ import { Button, Card, Input, Label } from '@/components/ui';
 
 export function AuthForm({ next }: { next: string }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('demo@weeble.com');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,14 +35,16 @@ export function AuthForm({ next }: { next: string }) {
   }
 
   return (
-    <Card>
-      <div className="mb-4 flex rounded-xl bg-slate-100 p-1">
+    <Card className="border-weeble-500/30">
+      <div className="mb-5 flex rounded-full bg-ink-950 p-1 ring-1 ring-ink-800">
         {(['signin', 'signup'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium ${mode === m ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+            className={`flex-1 rounded-full py-2.5 text-sm font-bold transition ${
+              mode === m ? 'bg-weeble-500 text-ink-950' : 'text-ink-400 hover:text-weeble-400'
+            }`}
           >
             {m === 'signin' ? 'Sign in' : 'Sign up'}
           </button>
@@ -57,15 +59,15 @@ export function AuthForm({ next }: { next: string }) {
         )}
         <div>
           <Label>Email</Label>
-          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
         </div>
         <div>
           <Label>Password</Label>
           <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" size="lg" disabled={loading}>
-          {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+          {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create Weeble account'}
         </Button>
       </form>
     </Card>

@@ -7,16 +7,16 @@ import { Footer } from '@/components/Footer';
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' });
 
 export const metadata: Metadata = {
-  title: 'Weeble — US-first eSIM marketplace',
-  description: 'Buy US and international eSIMs, manage devices, and earn free data by watching ads.',
+  title: 'Weeble — Simple US prepaid wireless',
+  description: 'Four simple Weeble plans for the United States. Instant eSIM. No surprises.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
+    <html lang="en" className="bg-ink-950">
+      <body className={`${inter.variable} font-sans antialiased bg-ink-950 text-ink-50`}>
         <Navbar />
-        <main className="mx-auto min-h-[70vh] max-w-6xl px-4 py-8">{children}</main>
+        <main className="mx-auto min-h-[70vh] max-w-6xl px-4 py-8 sm:py-10">{children}</main>
         <Footer />
       </body>
     </html>

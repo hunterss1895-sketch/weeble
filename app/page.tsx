@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { getEsimProvider, providerMeta } from '@/lib/providers';
 import { PlanCard } from '@/components/PlanCard';
-import { Badge } from '@/components/ui';
+import { listWeebleRetailPlans } from '@/lib/plans/weeble-plans';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
 export const dynamic = 'force-dynamic';
@@ -9,71 +8,89 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   await ensureSeeded();
-  const provider = getEsimProvider();
-  const meta = providerMeta();
-  const plans = await provider.listPlans();
-  const usOnly = plans.filter((p) => p.isUs);
-  // If no US plans from provider, show first 3 plans as homepage fallback.
-  const usPlans = (usOnly.length ? usOnly : plans).slice(0, 3);
+  const plans = listWeebleRetailPlans();
 
   return (
-    <div className="space-y-16">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-weeble-700 via-weeble-600 to-emerald-600 px-8 py-14 text-white shadow-xl">
-        <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative max-w-2xl">
-          <div className="mb-4 flex flex-wrap gap-2">
-            <Badge tone="amber">US plans first</Badge>
-            {meta.isDemo && <Badge tone="amber">Demo provider</Badge>}
-          </div>
-          <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-            Stay connected in the US — and everywhere else.
-          </h1>
-          <p className="mt-4 text-lg text-weeble-50/90">
-            Weeble is the US-first eSIM marketplace with instant QR activation, device management,
-            and a built-in watch-ads-for-data reward loop.
+    <div className="space-y-20">
+      {/* Bold MVNO hero */}
+      <section className="relative overflow-hidden rounded-[2rem] border border-ink-800 bg-gradient-to-b from-ink-900 via-ink-950 to-ink-950 px-6 py-16 sm:px-12 sm:py-24">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-weeble-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-weeble-500/10 blur-3xl" />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <p className="mb-4 inline-flex rounded-full border border-weeble-500/40 bg-weeble-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-weeble-400">
+            US prepaid wireless
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/plans" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-weeble-800 hover:bg-weeble-50">
-              Browse US plans
+          <h1 className="text-balance text-5xl font-black tracking-tight text-ink-50 sm:text-6xl lg:text-7xl">
+            Wireless that&apos;s <span className="text-weeble-400">simple</span>.
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg text-ink-400 sm:text-xl">
+            Four Weeble plans. Clear prices. Instant eSIM. No fine print maze — just pick your data and go.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/plans"
+              className="rounded-full bg-weeble-500 px-8 py-4 text-base font-bold text-ink-950 hover:bg-weeble-400 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-weeble-400"
+            >
+              See plans
             </Link>
-            <Link href="/plans?region=international" className="rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10">
-              International plans
-            </Link>
-            <Link href="/dashboard/earn" className="rounded-xl border border-white/40 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10">
-              Earn free data
+            <Link
+              href="/auth"
+              className="rounded-full border border-weeble-500/50 px-8 py-4 text-base font-bold text-weeble-400 hover:bg-weeble-500/10 transition"
+            >
+              Sign in
             </Link>
           </div>
         </div>
       </section>
 
-      <section>
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Top US plans</h2>
-            <p className="text-sm text-slate-500">Front-and-center coverage for the United States.</p>
-          </div>
-          <Link href="/plans" className="text-sm font-medium text-weeble-700 hover:underline">
-            See all →
-          </Link>
+      {/* Big plan grid */}
+      <section id="plans">
+        <div className="mb-10 text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.25em] text-weeble-400">Plans</p>
+          <h2 className="mt-3 text-4xl font-black tracking-tight text-ink-50 sm:text-5xl">
+            Pick your data.
+          </h2>
+          <p className="mt-3 text-ink-400">Exactly four Weeble plans. United States coverage.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {usPlans.map((p) => (
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {plans.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {[
-          { t: 'Instant QR eSIM', d: 'Buy a plan and install via QR or activation code in minutes.' },
-          { t: 'Watch ads, earn MB', d: 'Demo rewarded videos credit 50–100 MB with a daily cap.' },
-          { t: 'One dashboard', d: 'Balance, devices, usage history, and top-ups in a single place.' },
-        ].map((f) => (
-          <div key={f.t} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-900">{f.t}</h3>
-            <p className="mt-2 text-sm text-slate-500">{f.d}</p>
-          </div>
-        ))}
+      {/* How it works */}
+      <section id="how" className="rounded-[2rem] border border-ink-800 bg-ink-900/50 px-6 py-12 sm:px-10">
+        <h2 className="text-center text-3xl font-black text-ink-50 sm:text-4xl">
+          How <span className="text-weeble-400">Weeble</span> works
+        </h2>
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          {[
+            { n: '01', t: 'Choose a plan', d: '5 GB, 10 GB, 50 GB, or Unlimited — all US, all clear.' },
+            { n: '02', t: 'Get your eSIM', d: 'Buy and install with a QR code in minutes on a compatible phone.' },
+            { n: '03', t: 'Stay connected', d: 'Manage devices and data from your Weeble dashboard.' },
+          ].map((f) => (
+            <div key={f.n} className="rounded-2xl border border-ink-800 bg-ink-950/60 p-6">
+              <p className="text-sm font-black text-weeble-400">{f.n}</p>
+              <h3 className="mt-2 text-xl font-bold text-ink-50">{f.t}</h3>
+              <p className="mt-2 text-sm text-ink-400">{f.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom CTA */}
+      <section className="rounded-[2rem] bg-weeble-500 px-8 py-14 text-center text-ink-950">
+        <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Ready when you are.</h2>
+        <p className="mx-auto mt-3 max-w-lg text-ink-950/80">
+          Join Weeble — prepaid wireless without the noise.
+        </p>
+        <Link
+          href="/plans"
+          className="mt-8 inline-flex rounded-full bg-ink-950 px-8 py-4 text-base font-bold text-weeble-400 hover:bg-ink-900 transition"
+        >
+          Get started
+        </Link>
       </section>
     </div>
   );

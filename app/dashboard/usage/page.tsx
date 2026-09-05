@@ -30,20 +30,20 @@ export default async function UsagePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Usage & balance</h2>
-        <p className="text-sm text-slate-500">Track remaining data across active plans and reward credits.</p>
+        <h2 className="text-xl font-semibold text-ink-50">Usage & balance</h2>
+        <p className="text-sm text-ink-400">Track remaining data across active plans and reward credits.</p>
       </div>
 
       <Card>
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-500">Remaining</p>
-            <p className="text-3xl font-bold text-weeble-700">{formatData(usage.dataRemainingMb)}</p>
-            <p className="text-xs text-slate-400">of {formatData(usage.dataTotalMb)}</p>
+            <p className="text-sm text-ink-400">Remaining</p>
+            <p className="text-3xl font-bold text-weeble-400">{formatData(usage.dataRemainingMb)}</p>
+            <p className="text-xs text-ink-500">of {formatData(usage.dataTotalMb)}</p>
           </div>
-          <p className="text-sm text-slate-500">{usedPct}% used</p>
+          <p className="text-sm text-ink-400">{usedPct}% used</p>
         </div>
-        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-ink-800">
           <div
             className="h-full rounded-full bg-gradient-to-r from-weeble-500 to-emerald-400"
             style={{ width: `${100 - usedPct}%` }}
@@ -54,14 +54,14 @@ export default async function UsagePage() {
       <Card>
         <h3 className="mb-3 font-semibold">Plans & top-ups</h3>
         {purchases.length === 0 ? (
-          <p className="text-sm text-slate-500">No purchases yet.</p>
+          <p className="text-sm text-ink-400">No purchases yet.</p>
         ) : (
           <ul className="space-y-2">
             {purchases.map((p) => (
-              <li key={p.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
+              <li key={p.id} className="flex items-center justify-between rounded-xl bg-ink-950/70 px-3 py-2 text-sm">
                 <div>
                   <p className="font-medium">{p.plan.name}</p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-ink-400">
                     {formatData(p.dataRemainingMb)} / {formatData(p.dataTotalMb)} · {p.status}
                     {p.expiresAt ? ` · exp ${formatDate(p.expiresAt)}` : ''}
                   </p>
@@ -75,21 +75,21 @@ export default async function UsagePage() {
       <Card>
         <h3 className="mb-3 font-semibold">Activity</h3>
         {records.length === 0 ? (
-          <p className="text-sm text-slate-500">No usage events yet.</p>
+          <p className="text-sm text-ink-400">No usage events yet.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {records.map((r) => (
               <li key={r.id} className="flex justify-between py-2 text-sm">
                 <div>
                   <p className="font-medium">{r.note || r.source}</p>
-                  <p className="text-xs text-slate-400">{r.source}</p>
+                  <p className="text-xs text-ink-500">{r.source}</p>
                 </div>
                 <div className="text-right">
-                  <p className={r.mbUsed < 0 ? 'text-emerald-600' : 'text-slate-700'}>
+                  <p className={r.mbUsed < 0 ? 'text-weeble-400' : 'text-ink-200'}>
                     {r.mbUsed < 0 ? '+' : '-'}
                     {formatData(Math.abs(r.mbUsed))}
                   </p>
-                  <p className="text-xs text-slate-400">{formatDate(r.createdAt)}</p>
+                  <p className="text-xs text-ink-500">{formatDate(r.createdAt)}</p>
                 </div>
               </li>
             ))}

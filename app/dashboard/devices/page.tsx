@@ -30,13 +30,13 @@ export default async function DevicesPage({
         </div>
       )}
       <div>
-        <h2 className="text-xl font-semibold text-slate-900">Your devices</h2>
-        <p className="text-sm text-slate-500">Nickname, ICCID, QR payload, and install steps for each eSIM.</p>
+        <h2 className="text-xl font-semibold text-ink-50">Your devices</h2>
+        <p className="text-sm text-ink-400">Nickname, ICCID, QR payload, and install steps for each eSIM.</p>
       </div>
 
       {devices.length === 0 ? (
         <Card>
-          <p className="text-sm text-slate-500">No devices yet. Purchase a plan to get an eSIM QR.</p>
+          <p className="text-sm text-ink-400">No devices yet. Purchase a plan to get an eSIM QR.</p>
         </Card>
       ) : (
         <div className="grid gap-6">
@@ -49,30 +49,30 @@ export default async function DevicesPage({
                 </div>
                 <dl className="space-y-2 text-sm">
                   <div>
-                    <dt className="text-slate-500">ICCID</dt>
-                    <dd className="font-mono text-slate-800">{d.iccid}</dd>
+                    <dt className="text-ink-400">ICCID</dt>
+                    <dd className="font-mono text-ink-100">{d.iccid}</dd>
                   </div>
                   {d.purchase && (
                     <>
                       <div>
-                        <dt className="text-slate-500">Plan</dt>
+                        <dt className="text-ink-400">Plan</dt>
                         <dd>{d.purchase.plan.name} · {formatData(d.purchase.dataRemainingMb)} left</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Activation code</dt>
+                        <dt className="text-ink-400">Activation code</dt>
                         <dd className="font-mono">{d.purchase.activationCode}</dd>
                       </div>
                       {d.purchase.expiresAt && (
                         <div>
-                          <dt className="text-slate-500">Expires</dt>
+                          <dt className="text-ink-400">Expires</dt>
                           <dd>{formatDate(d.purchase.expiresAt)}</dd>
                         </div>
                       )}
                     </>
                   )}
                 </dl>
-                <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
-                  <p className="font-medium text-slate-800">Install steps</p>
+                <div className="rounded-xl bg-ink-950/70 p-3 text-sm text-ink-300">
+                  <p className="font-medium text-ink-100">Install steps</p>
                   <ol className="mt-2 list-decimal space-y-1 pl-4">
                     <li>Open Settings → Cellular / Mobile Data</li>
                     <li>Tap Add eSIM / Add Cellular Plan</li>
@@ -86,7 +86,7 @@ export default async function DevicesPage({
                 {d.purchase?.qrPayload ? (
                   <QrDisplay payload={d.purchase.qrPayload} />
                 ) : (
-                  <p className="text-sm text-slate-400">No QR available</p>
+                  <p className="text-sm text-ink-500">No QR available</p>
                 )}
               </div>
             </Card>

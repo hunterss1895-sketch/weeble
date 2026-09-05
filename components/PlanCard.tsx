@@ -4,34 +4,39 @@ import { formatData, formatPrice } from '@/lib/utils';
 import type { EsimPlan } from '@/lib/providers';
 
 export function PlanCard({ plan }: { plan: EsimPlan }) {
+  const price = formatPrice(plan.priceCents, plan.currency).replace('.00', '');
   return (
-    <Card className="flex h-full flex-col transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-weeble-600">
-            {plan.isUs ? 'United States' : plan.region}
-          </p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-900">{plan.name}</h3>
+    <Card
+      className={`relative flex h-full flex-col overflow-hidden transition hover:-translate-y-1 hover:border-weeble-500/60 hover:shadow-[0_0_40px_rgba(245,197,24,0.12)] ${
+        plan.popular ? 'border-weeble-500/70 ring-1 ring-weeble-500/40' : ''
+      }`}
+    >
+      {plan.popular && (
+        <div className="absolute right-4 top-4">
+          <Badge tone="yellow">Popular</Badge>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          {plan.priceCents <= 0 && <Badge tone="green">Free</Badge>}
-          {plan.popular && <Badge tone="green">Popular</Badge>}
-          {plan.isUs ? <Badge>US</Badge> : <Badge tone="slate">Intl</Badge>}
-        </div>
+      )}
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-weeble-400">United States</p>
+      <h3 className="mt-3 text-2xl font-black tracking-tight text-ink-50">{plan.name.replace(/^Weeble\s+/, '')}</h3>
+      <p className="mt-2 line-clamp-2 flex-1 text-sm text-ink-400">{plan.description}</p>
+
+      <div className="mt-6">
+        <p className="text-5xl font-black tracking-tight text-ink-50">
+          {formatData(plan.dataMb)}
+        </p>
+        <p className="mt-1 text-sm text-ink-500">{plan.validityDays}-day plan</p>
       </div>
-      <p className="mb-4 line-clamp-2 flex-1 text-sm text-slate-500">{plan.description}</p>
-      <div className="mb-4 flex items-end justify-between">
-        <div>
-          <p className="text-2xl font-bold text-slate-900">{formatData(plan.dataMb)}</p>
-          <p className="text-xs text-slate-500">{plan.validityDays} days validity</p>
-        </div>
-        <p className="text-xl font-semibold text-weeble-700">{formatPrice(plan.priceCents, plan.currency)}</p>
+
+      <div className="mt-6 flex items-end gap-1">
+        <span className="text-4xl font-black text-weeble-400">{price}</span>
+        <span className="mb-1 text-sm font-medium text-ink-500">/ {plan.validityDays} days</span>
       </div>
+
       <Link
         href={`/plans/${plan.id}`}
-        className="inline-flex w-full items-center justify-center rounded-xl bg-weeble-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-weeble-700"
+        className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-weeble-500 px-4 py-3.5 text-sm font-bold text-ink-950 transition hover:bg-weeble-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-weeble-400 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-900"
       >
-        View plan
+        Choose plan
       </Link>
     </Card>
   );

@@ -1,55 +1,30 @@
-import { Suspense } from 'react';
-import { getEsimProvider } from '@/lib/providers';
 import { PlanCard } from '@/components/PlanCard';
-import { RegionFilter } from '@/components/RegionFilter';
+import { listWeebleRetailPlans } from '@/lib/plans/weeble-plans';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function PlansPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ region?: string }>;
-}) {
+export default async function PlansPage() {
   await ensureSeeded();
-  const { region } = await searchParams;
-  const provider = getEsimProvider();
-  let plans = await provider.listPlans();
-
-  const r = (region || 'us').toLowerCase();
-  if (r === 'us') {
-    plans = plans.filter((p) => p.isUs);
-  } else if (r === 'international') {
-    plans = plans.filter((p) => !p.isUs);
-  } else {
-    plans = plans.filter((p) => p.region.toLowerCase() === r || p.countryCode.toLowerCase() === r);
-  }
+  const plans = listWeebleRetailPlans();
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">eSIM plans</h1>
-          <p className="mt-1 text-slate-500">
-            US plans are shown by default. Use the region dropdown for international coverage.
-          </p>
-        </div>
-        <Suspense fallback={null}>
-          <RegionFilter />
-        </Suspense>
-      </div>
-      {plans.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-500">
-          No plans in this region. Try United States or International.
+    <div className="space-y-10">
+      <div className="mx-auto max-w-2xl text-center">
+        <p className="text-sm font-bold uppercase tracking-[0.25em] text-weeble-400">Weeble plans</p>
+        <h1 className="mt-3 text-4xl font-black tracking-tight text-ink-50 sm:text-5xl">
+          Simple pricing. Four plans.
+        </h1>
+        <p className="mt-4 text-lg text-ink-400">
+          United States coverage. Instant eSIM. No catalog clutter — just the Weeble lineup.
         </p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {plans.map((p) => (
-            <PlanCard key={p.id} plan={p} />
-          ))}
-        </div>
-      )}
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {plans.map((p) => (
+          <PlanCard key={p.id} plan={p} />
+        ))}
+      </div>
     </div>
   );
 }

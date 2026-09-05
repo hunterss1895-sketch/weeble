@@ -3,6 +3,7 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 }
 
 export function formatData(mb: number): string {
+  if (!Number.isFinite(mb) || mb < 0 || mb >= 500000) return 'Unlimited';
   if (mb >= 1024) return (mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1) + ' GB';
   return mb + ' MB';
 }

@@ -33,9 +33,9 @@ export function PurchaseButton({ planId, priceCents = 1 }: { planId: string; pri
   return (
     <div>
       <Button className="w-full" size="lg" onClick={buy} disabled={loading}>
-        {loading ? 'Activating…' : isFree ? 'Get free starter QR' : 'Buy & get QR'}
+        {loading ? 'Activating…' : isFree ? 'Get free starter' : 'Buy Weeble plan'}
       </Button>
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
     </div>
   );
 }

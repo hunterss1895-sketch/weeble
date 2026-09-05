@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { getEsimProvider, providerMeta } from '@/lib/providers';
+import { getEsimProvider } from '@/lib/providers';
 import { prisma } from '@/lib/db/prisma';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
-import { Badge, Card } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { formatData, formatPrice } from '@/lib/utils';
 
 export default async function DashboardPage() {
@@ -12,7 +12,6 @@ export default async function DashboardPage() {
   if (!session) return null;
 
   const provider = getEsimProvider();
-  const meta = providerMeta();
   const usage = await provider.getUsage(session.id);
   const devices = await prisma.device.count({ where: { userId: session.id } });
   const purchases = await prisma.purchase.findMany({
@@ -29,65 +28,65 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        {meta.isDemo && <Badge tone="amber">Demo provider ({meta.name})</Badge>}
-        {!meta.isDemo && <Badge tone="green">Live: {meta.name}</Badge>}
-      </div>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <p className="text-xs font-medium uppercase text-slate-500">Data remaining</p>
-          <p className="mt-2 text-2xl font-bold text-weeble-700">{formatData(usage.dataRemainingMb)}</p>
-          <p className="text-xs text-slate-400">of {formatData(usage.dataTotalMb)} total</p>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Data remaining</p>
+          <p className="mt-2 text-3xl font-black text-ink-50">{formatData(usage.dataRemainingMb)}</p>
+          <p className="text-xs text-ink-500">of {formatData(usage.dataTotalMb)} total</p>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase text-slate-500">Active plans</p>
-          <p className="mt-2 text-2xl font-bold">{usage.activePlans}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Active plans</p>
+          <p className="mt-2 text-3xl font-black text-ink-50">{usage.activePlans}</p>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase text-slate-500">Devices</p>
-          <p className="mt-2 text-2xl font-bold">{devices}</p>
-          <Link href="/dashboard/devices" className="text-xs text-weeble-700 hover:underline">Manage →</Link>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Devices</p>
+          <p className="mt-2 text-3xl font-black text-ink-50">{devices}</p>
+          <Link href="/dashboard/devices" className="text-xs font-semibold text-weeble-400 hover:text-weeble-300">Manage →</Link>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase text-slate-500">Earned from ads</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">{formatData(adMb._sum.dataMb || 0)}</p>
-          <p className="text-xs text-slate-400">{adCount} rewards</p>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Earned from ads</p>
+          <p className="mt-2 text-3xl font-black text-weeble-400">{formatData(adMb._sum.dataMb || 0)}</p>
+          <p className="text-xs text-ink-500">{adCount} rewards</p>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900">Recent purchases</h2>
-            <Link href="/plans" className="text-sm text-weeble-700 hover:underline">Top up</Link>
+            <h2 className="text-lg font-bold text-ink-50">Recent purchases</h2>
+            <Link href="/plans" className="text-sm font-semibold text-weeble-400 hover:text-weeble-300">Top up</Link>
           </div>
           {purchases.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ink-400">
               No plans yet.{' '}
-              <Link href="/plans" className="text-weeble-700 hover:underline">Browse US plans</Link>
+              <Link href="/plans" className="font-semibold text-weeble-400 hover:text-weeble-300">Browse Weeble plans</Link>
             </p>
           ) : (
             <ul className="space-y-3">
               {purchases.map((p) => (
-                <li key={p.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
+                <li key={p.id} className="flex items-center justify-between rounded-2xl bg-ink-950/70 px-4 py-3 text-sm ring-1 ring-ink-800">
                   <div>
-                    <p className="font-medium">{p.plan.name}</p>
-                    <p className="text-xs text-slate-500">{formatData(p.dataRemainingMb)} left · {p.status}</p>
+                    <p className="font-semibold text-ink-50">{p.plan.name}</p>
+                    <p className="text-xs text-ink-500">{formatData(p.dataRemainingMb)} left · {p.status}</p>
                   </div>
-                  <span className="text-slate-600">{formatPrice(p.plan.priceCents)}</span>
+                  <span className="font-bold text-weeble-400">{formatPrice(p.plan.priceCents)}</span>
                 </li>
               ))}
             </ul>
           )}
         </Card>
-        <Card>
-          <h2 className="mb-2 font-semibold text-slate-900">Quick actions</h2>
+        <Card className="border-weeble-500/30">
+          <h2 className="mb-3 text-lg font-bold text-ink-50">Quick actions</h2>
           <div className="grid gap-2">
-            <Link href="/plans" className="rounded-xl border border-slate-200 px-4 py-3 text-sm hover:bg-weeble-50">Buy a US plan</Link>
-            <Link href="/plans?region=international" className="rounded-xl border border-slate-200 px-4 py-3 text-sm hover:bg-weeble-50">International plans</Link>
-            <Link href="/dashboard/earn" className="rounded-xl border border-slate-200 px-4 py-3 text-sm hover:bg-weeble-50">Watch ads for free data</Link>
-            <Link href="/dashboard/devices" className="rounded-xl border border-slate-200 px-4 py-3 text-sm hover:bg-weeble-50">Install eSIM / view QR</Link>
+            <Link href="/plans" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
+              Buy a Weeble plan
+            </Link>
+            <Link href="/dashboard/earn" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
+              Watch ads for free data
+            </Link>
+            <Link href="/dashboard/devices" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
+              Install eSIM / view QR
+            </Link>
           </div>
         </Card>
       </div>

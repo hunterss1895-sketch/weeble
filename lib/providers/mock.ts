@@ -1,3 +1,4 @@
+import { listWeebleRetailPlans, getWeebleRetailPlan } from '@/lib/plans/weeble-plans';
 import { prisma } from '@/lib/db/prisma';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
 
@@ -64,25 +65,42 @@ export class MockProvider implements EsimProvider {
   }
 
   async listPlans(): Promise<EsimPlan[]> {
-    // Hard gate: never serve seeded demo catalog while eSIMCard is the active provider.
-    if (this.liveEsimCardActive()) {
-      console.warn('[MockProvider] listPlans blocked — PROVIDER=esimcard (no mock leak)');
-      return [];
-    }
-    const plans = await prisma.plan.findMany({ orderBy: [{ isUs: 'desc' }, { popular: 'desc' }, { priceCents: 'asc' }] });
-    return plans.map(mapPlan);
+    // Fixed Weeble retail only — no mock seed catalog on the storefront.
+    return listWeebleRetailPlans();
   }
 
   async getPlan(id: string): Promise<EsimPlan | null> {
-    if (this.liveEsimCardActive()) return null;
-    const plan = await prisma.plan.findUnique({ where: { id } });
-    return plan ? mapPlan(plan) : null;
+    return getWeebleRetailPlan(id);
   }
 
   async purchase(planId: string, userId: string): Promise<PurchaseResult> {
-    const plan = await prisma.plan.findUnique({ where: { id: planId } });
+    const retail = getWeebleRetailPlan(planId);
+    let plan = await prisma.plan.findFirst({
+      where: { OR: [{ id: planId }, { providerId: planId }, ...(retail ? [{ id: retail.id }, { providerId: retail.providerId }] : [])] },
+    });
+    if (!plan && retail) {
+      const ledgerMb = retail.dataMb < 0 ? 999999 : retail.dataMb;
+      plan = await prisma.plan.create({
+        data: {
+          id: retail.id,
+          providerId: retail.providerId,
+          name: retail.name,
+          region: retail.region,
+          countryCode: retail.countryCode,
+          dataMb: ledgerMb,
+          validityDays: retail.validityDays,
+          priceCents: retail.priceCents,
+          currency: retail.currency,
+          description: retail.description,
+          popular: retail.popular,
+          isUs: retail.isUs,
+          features: JSON.stringify(retail.features),
+        },
+      });
+    }
     if (!plan) throw new Error('Plan not found');
 
+    const ledgerMb = plan.dataMb < 0 ? 999999 : plan.dataMb;
     const iccid = randomIccid();
     const activationCode = 'WEEBLE-' + Math.random().toString(36).slice(2, 10).toUpperCase();
     const qrPayload = makeQrPayload(activationCode);
@@ -96,8 +114,8 @@ export class MockProvider implements EsimProvider {
         activationCode,
         qrPayload,
         iccid,
-        dataRemainingMb: plan.dataMb,
-        dataTotalMb: plan.dataMb,
+        dataRemainingMb: ledgerMb,
+        dataTotalMb: ledgerMb,
         expiresAt,
       },
     });
@@ -117,7 +135,7 @@ export class MockProvider implements EsimProvider {
       iccid,
       activationCode,
       qrPayload,
-      dataTotalMb: plan.dataMb,
+      dataTotalMb: ledgerMb,
       expiresAt,
     };
   }

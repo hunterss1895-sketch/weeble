@@ -28,6 +28,7 @@ import dns from 'node:dns';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
+import { getWeebleRetailPlan, listWeebleRetailPlans } from '@/lib/plans/weeble-plans';
 
 // VPS has IPv6; eSIMCard whitelist is IPv4-only — prefer A records (also set NODE_OPTIONS=--dns-result-order=ipv4first on start).
 dns.setDefaultResultOrder('ipv4first');
@@ -326,20 +327,21 @@ export class EsimCardProvider implements EsimProvider {
     const priceCents = retailCentsFromWholesale(wholesale, dataMb);
     const spn = spnName();
 
+    // Customer-facing copy is Weeble-only (no upstream brand names).
     return {
       id: `esimcard-${id}`.slice(0, 64),
       providerId: id,
-      name,
+      name: name.replace(/eSIMCard|esimcard|Visible|DepinSim|Firsty|Telnyx/gi, spn),
       region,
       countryCode,
       dataMb,
       validityDays,
       priceCents,
       currency: String(p.currency || 'USD'),
-      description: `${spn} via eSIMCard — ${region} ${dataMb} MB / ${validityDays} days.`,
+      description: `${spn} — ${region} ${dataMb < 0 ? 'Unlimited' : dataMb + ' MB'} / ${validityDays} days.`,
       popular: isUs && dataMb >= 1024 && dataMb <= 10240,
       isUs,
-      features: [`${spn} SPN`, 'eSIMCard network', 'Instant QR', '4G/5G'],
+      features: [`${spn} eSIM`, 'Instant QR', '4G/5G', 'Hotspot OK'],
     };
   }
 
@@ -372,79 +374,24 @@ export class EsimCardProvider implements EsimProvider {
   }
 
   async listPlans(): Promise<EsimPlan[]> {
-    // No token → demo catalog only. With token, NEVER merge/return MockProvider plans.
-    if (!this.token) return this.fallback.listPlans();
-
-    if (livePlansCache && Date.now() - livePlansCache.at < LIVE_CACHE_TTL_MS) {
-      return livePlansCache.plans;
-    }
-
-    try {
-      const PLAN_CAP = 150;
-      const collected: Record<string, unknown>[] = [];
-
-      // Prefer US/local country catalog + global, then paginated full catalog.
-      const countryRes = await this.fetchPackagePages('packages/country', {}, 3);
-      collected.push(...countryRes);
-
-      if (collected.length < 20) {
-        const usFiltered = await this.fetchPackagePages(
-          'packages',
-          { type: 'local', package_type: 'local' },
-          2
-        );
-        collected.push(...usFiltered);
-      }
-
-      const globalRes = await this.fetchPackagePages('packages/global', {}, 3);
-      collected.push(...globalRes);
-
-      const allPages = await this.fetchPackagePages('packages', {}, 4);
-      collected.push(...allPages);
-
-      if (!collected.length) {
-        console.warn('[EsimCard] no packages from API — returning empty (no mock leak)');
-        return livePlansCache?.plans ?? [];
-      }
-
-      const seen = new Set<string>();
-      const plans: EsimPlan[] = [];
-      collected.forEach((raw, i) => {
-        const mapped = this.mapPackage(raw, i);
-        if (!mapped || seen.has(mapped.providerId)) return;
-        // Never surface seeded mock ids even if somehow present
-        if (mapped.providerId.startsWith('mock-') || mapped.id.startsWith('mock-')) return;
-        seen.add(mapped.providerId);
-        plans.push(mapped);
-      });
-
-      if (!plans.length) {
-        console.warn('[EsimCard] packages unmapped — returning empty (no mock leak)');
-        return livePlansCache?.plans ?? [];
-      }
-
-      const ordered = this.preferUsGlobal(plans).slice(0, PLAN_CAP);
-      livePlansCache = { at: Date.now(), plans: ordered };
-      console.info(
-        `[EsimCard] live catalog: ${ordered.length} plans (from ${collected.length} raw, US=${ordered.filter((p) => p.isUs).length})`
-      );
-      return ordered;
-    } catch (e) {
-      console.warn('[EsimCard] listPlans failed — no mock fallback', e);
-      return livePlansCache?.plans ?? [];
-    }
+    // Storefront: exactly 4 fixed Weeble US retail plans (never dump full upstream catalog / mock seed).
+    // package_type_id mapping lives in lib/plans/weeble-plans.ts comments only.
+    const plans = listWeebleRetailPlans();
+    livePlansCache = { at: Date.now(), plans };
+    return plans;
   }
 
   async getPlan(id: string): Promise<EsimPlan | null> {
     try {
-      if (!this.token) return this.fallback.getPlan(id);
-
-      // Never resolve seeded mock plans while live eSIMCard is active
+      // Never resolve seeded mock plans into the storefront
       if (id.startsWith('mock-') || id.includes('mock-')) return null;
 
-      // Strip optional esimcard- prefix
-      const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
+      const retail = getWeebleRetailPlan(id);
+      if (retail) return retail;
 
+      // Fallback: still allow purchase-time resolve by provider package id if needed
+      if (!this.token) return null;
+      const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
       const detail = await this.api<Record<string, unknown> | { data?: Record<string, unknown> }>(
         `package/detail/${encodeURIComponent(providerId)}`
       );
@@ -456,9 +403,7 @@ export class EsimCardProvider implements EsimProvider {
         const mapped = this.mapPackage(raw, 0);
         if (mapped) return mapped;
       }
-
-      const plans = await this.listPlans();
-      return plans.find((p) => p.id === id || p.providerId === id || p.providerId === providerId) || null;
+      return null;
     } catch (e) {
       console.warn('[EsimCard] getPlan failed (no mock fallback)', e);
       return null;
@@ -497,7 +442,7 @@ export class EsimCardProvider implements EsimProvider {
 
   async purchase(planId: string, userId: string): Promise<PurchaseResult> {
     try {
-      const plan = (await this.getPlan(planId)) || (await this.fallback.getPlan(planId));
+      const plan = getWeebleRetailPlan(planId) || (await this.getPlan(planId)) || (await this.fallback.getPlan(planId));
       if (!plan) throw new Error('Plan not found');
 
       // Free starter / $0 plans stay local — never bill eSIMCard.
@@ -572,6 +517,7 @@ export class EsimCardProvider implements EsimProvider {
       }
 
       const expiresAt = new Date(Date.now() + plan.validityDays * 86400000);
+      const ledgerMb = plan.dataMb < 0 ? 999999 : plan.dataMb;
 
       // Persist plan locally if needed
       let localPlanId = plan.id;
@@ -609,8 +555,8 @@ export class EsimCardProvider implements EsimProvider {
           activationCode,
           qrPayload,
           iccid,
-          dataRemainingMb: plan.dataMb,
-          dataTotalMb: plan.dataMb,
+          dataRemainingMb: ledgerMb,
+          dataTotalMb: ledgerMb,
           expiresAt,
         },
       });
@@ -619,7 +565,7 @@ export class EsimCardProvider implements EsimProvider {
         data: {
           userId,
           purchaseId: purchase.id,
-          nickname: `${plan.name} eSIM (${spn})`,
+          nickname: `${plan.name} eSIM`,
           iccid,
           status: 'pending_install',
         },
@@ -630,7 +576,7 @@ export class EsimCardProvider implements EsimProvider {
         iccid,
         activationCode,
         qrPayload,
-        dataTotalMb: plan.dataMb,
+        dataTotalMb: ledgerMb,
         expiresAt,
       };
     } catch (e) {
