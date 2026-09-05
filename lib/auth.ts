@@ -16,6 +16,14 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
+/** Secure cookies only when explicitly enabled or AUTH_URL is https (HTTP IP deploys must stay insecure). */
+function cookieSecure() {
+  if (process.env.AUTH_COOKIE_SECURE === 'true') return true;
+  if (process.env.AUTH_COOKIE_SECURE === 'false') return false;
+  const url = process.env.AUTH_URL || process.env.NEXTAUTH_URL || '';
+  return url.startsWith('https://');
+}
+
 export async function createSession(user: SessionUser) {
   const token = await new SignJWT({ sub: user.id, email: user.email, name: user.name })
     .setProtectedHeader({ alg: 'HS256' })
@@ -26,7 +34,7 @@ export async function createSession(user: SessionUser) {
   jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   });
