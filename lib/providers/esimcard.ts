@@ -25,6 +25,8 @@
  * On missing token, listPlans returns []. With a live token, listPlans never returns mock — full live catalog.
  */
 import dns from 'node:dns';
+import fs from 'node:fs';
+import path from 'node:path';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
@@ -42,7 +44,30 @@ dns.setDefaultResultOrder('ipv4first');
 
 /** Short in-memory cache of LIVE eSIMCard plans only (never mock). */
 let livePlansCache: { at: number; plans: EsimPlan[] } | null = null;
-const LIVE_CACHE_TTL_MS = 15 * 60_000; // 15 min — full catalog is slow to rebuild
+const LIVE_CACHE_TTL_MS = 30 * 60_000; // 30 min memory cache
+const DISK_CACHE_PATH = path.join('/tmp', 'weeble-esimcard-catalog.json');
+const DISK_CACHE_TTL_MS = 6 * 60 * 60_000; // 6 hours
+
+function readDiskCatalog(): EsimPlan[] | null {
+  try {
+    if (!fs.existsSync(DISK_CACHE_PATH)) return null;
+    const raw = JSON.parse(fs.readFileSync(DISK_CACHE_PATH, 'utf8')) as { at: number; plans: EsimPlan[] };
+    if (!raw?.plans?.length || !Number.isFinite(raw.at)) return null;
+    if (Date.now() - raw.at > DISK_CACHE_TTL_MS) return null;
+    console.info(`[EsimCard] disk cache hit: ${raw.plans.length} plans age_ms=${Date.now() - raw.at}`);
+    return raw.plans;
+  } catch {
+    return null;
+  }
+}
+
+function writeDiskCatalog(plans: EsimPlan[]) {
+  try {
+    fs.writeFileSync(DISK_CACHE_PATH, JSON.stringify({ at: Date.now(), plans }), 'utf8');
+  } catch (e) {
+    console.warn('[EsimCard] disk cache write failed', e);
+  }
+}
 
 const SANDBOX_BASE = 'https://sandbox.esimcard.com/api/developer/';
 const LIVE_BASE = 'https://portal.esimcard.com/api/developer/';
@@ -481,7 +506,7 @@ export class EsimCardProvider implements EsimProvider {
     console.info(`[EsimCard] catalog page 1/${lastPage} (meta.total=${totalHint})`);
 
     // Keep concurrency low — portal rate-limits (~429 Too Many Attempts) under burst load.
-    const CONCURRENCY = 4;
+    const CONCURRENCY = 2;
     for (let start = 2; start <= lastPage; start += CONCURRENCY) {
       const pages: number[] = [];
       for (let p = start; p < start + CONCURRENCY && p <= lastPage; p++) pages.push(p);
@@ -503,7 +528,7 @@ export class EsimCardProvider implements EsimProvider {
         );
       }
       // Small pause between batches to stay under rate limit
-      await new Promise((r) => setTimeout(r, 150));
+      await new Promise((r) => setTimeout(r, 500));
     }
     return out;
   }
@@ -732,7 +757,13 @@ export class EsimCardProvider implements EsimProvider {
       return livePlansCache.plans.map((p) => ({ ...p, features: [...p.features] }));
     }
 
-    // Serve slightly stale cache while a refresh is desirable
+    const disk = readDiskCatalog();
+    if (disk?.length) {
+      livePlansCache = { at: Date.now(), plans: disk };
+      return disk.map((p) => ({ ...p, features: [...p.features] }));
+    }
+
+    // Serve slightly stale memory cache while a refresh is desirable
     const stale = livePlansCache?.plans;
 
     try {
@@ -763,6 +794,7 @@ export class EsimCardProvider implements EsimProvider {
 
       const ordered = this.preferUsGlobal(plans);
       livePlansCache = { at: Date.now(), plans: ordered };
+      writeDiskCatalog(ordered);
       console.info(
         `[EsimCard] live catalog: ${ordered.length} plans (raw=${collected.length}, US=${ordered.filter((p) => p.isUs).length})`
       );
