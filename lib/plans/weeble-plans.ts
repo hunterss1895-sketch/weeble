@@ -1,8 +1,9 @@
 import type { EsimPlan } from '@/lib/providers/types';
 
 /**
- * Weeble fixed US retail catalog (exactly 4 tiers).
- * Storefront shows ONLY these plans — never the full upstream catalog.
+ * Optional Popular US highlight tiers (5 / 10 / 50 GB / Unlimited).
+ * The main storefront is the FULL live eSIMCard catalog; these ids are only used
+ * for the "Popular US" strip and still purchase via real package_type_id.
  *
  * Preferred eSIMCard package_type_ids (validated live; fallback = closest US by data size):
  *   5 GB      → 019c9954-75ca-7104-985d-c08d3a1e31cc
@@ -10,7 +11,9 @@ import type { EsimPlan } from '@/lib/providers/types';
  *   50 GB     → 019c9954-770a-7033-a9cf-4242ceb23faf
  *   Unlimited → 019c9959-5778-7388-8a8d-03a9a5e31c40
  *
- * Retail display names stay Weeble-only (no eSIMCard branding in UI).
+ * Markup rule (full catalog): retail ≈ wholesale × PRICE_MARKUP (default 2), snapped to $X.99.
+ * Popular sticky prices kept when they still cover wholesale (+~5% margin).
+ * Weeble-only branding in UI (no upstream provider names).
  * dataMb = -1 means Unlimited in UI helpers.
  */
 

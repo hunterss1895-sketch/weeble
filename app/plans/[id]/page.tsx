@@ -25,7 +25,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
           ← All plans
         </Link>
         <div className="flex flex-wrap gap-2">
-          <Badge tone="yellow">United States</Badge>
+          <Badge tone="yellow">{plan.region}</Badge>
           {plan.popular && <Badge tone="yellow">Popular</Badge>}
         </div>
         <h1 className="text-4xl font-black tracking-tight text-ink-50 sm:text-5xl">{plan.name}</h1>

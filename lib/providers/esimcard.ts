@@ -22,7 +22,7 @@
  *   PROVIDER=esimcard
  *
  * Apply: https://esimcard.com/partners/ (NDA → API token). Free setup; pay when you sell.
- * On missing token only, fall back to MockProvider. With a live token, listPlans never returns mock.
+ * On missing token, listPlans returns []. With a live token, listPlans never returns mock — full live catalog.
  */
 import dns from 'node:dns';
 import { prisma } from '@/lib/db/prisma';
@@ -42,7 +42,7 @@ dns.setDefaultResultOrder('ipv4first');
 
 /** Short in-memory cache of LIVE eSIMCard plans only (never mock). */
 let livePlansCache: { at: number; plans: EsimPlan[] } | null = null;
-const LIVE_CACHE_TTL_MS = 60_000;
+const LIVE_CACHE_TTL_MS = 15 * 60_000; // 15 min — full catalog is slow to rebuild
 
 const SANDBOX_BASE = 'https://sandbox.esimcard.com/api/developer/';
 const LIVE_BASE = 'https://portal.esimcard.com/api/developer/';
@@ -61,25 +61,64 @@ function useSandbox(): boolean {
   return v !== 'false' && v !== '0' && v !== 'no';
 }
 
-/** Thin positive retail markup over wholesale (cents). */
+/**
+ * Retail pricing rule (documented):
+ *   retailCents ≈ wholesaleCents × PRICE_MARKUP (default 2.0)
+ *   then snap to a nice $X.99 when ≥ $1, else keep cents (min $0.49).
+ * Env PRICE_MARKUP overrides the multiplier.
+ */
 function retailCentsFromWholesale(wholesaleCents: number, dataMb: number): number {
-  const markup = Number(process.env.PRICE_MARKUP || '1.35');
-  const m = Number.isFinite(markup) && markup > 0 ? markup : 1.35;
-  if (Number.isFinite(wholesaleCents) && wholesaleCents > 0) {
-    return Math.min(4999, Math.max(99, Math.round(wholesaleCents * m)));
+  const markupRaw = Number(process.env.PRICE_MARKUP || '2');
+  const m = Number.isFinite(markupRaw) && markupRaw >= 1 ? markupRaw : 2;
+  let wholesale = wholesaleCents;
+  if (!Number.isFinite(wholesale) || wholesale <= 0) {
+    const wholesalePerMb = Number(process.env.ESIMCARD_WHOLESALE_CENTS_PER_MB || '0.25');
+    const mb = Number.isFinite(dataMb) && dataMb > 0 ? dataMb : 1024;
+    wholesale = Math.round(mb * (Number.isFinite(wholesalePerMb) ? wholesalePerMb : 0.25));
   }
-  // Fallback: ~$0.25/MB wholesale * markup
-  const wholesalePerMb = Number(process.env.ESIMCARD_WHOLESALE_CENTS_PER_MB || '0.25');
-  const raw = Math.round(dataMb * (Number.isFinite(wholesalePerMb) ? wholesalePerMb : 0.25) * m);
-  return Math.min(4999, Math.max(99, raw));
+  const raw = Math.max(1, Math.round(wholesale * m));
+  if (raw < 100) return Math.max(49, raw);
+  // Snap up to nearest $X.99 (e.g. 112 → 199, 1200 → 1299)
+  return Math.ceil(raw / 100) * 100 - 1;
 }
 
 function detectRegion(
   name: string,
   country?: string | null,
   type?: string | null,
-  scope?: string | null
+  scope?: string | null,
+  coverage?: Array<Record<string, unknown>> | null
 ): { region: string; isUs: boolean; countryCode: string } {
+  const coverageList = Array.isArray(coverage) ? coverage : [];
+  if (coverageList.length === 1) {
+    const c = coverageList[0];
+    const code = String(c.code || c.iso || c.country_code || '').trim().toUpperCase().slice(0, 3);
+    const cname = String(c.country_name || c.name || country || '').trim();
+    if (code === 'US' || code === 'USA' || /united states/i.test(cname)) {
+      return { region: 'United States', isUs: true, countryCode: 'US' };
+    }
+    return {
+      region: cname || code || 'International',
+      isUs: false,
+      countryCode: (code === 'USA' ? 'US' : code || 'GL').slice(0, 8),
+    };
+  }
+  if (coverageList.length > 1) {
+    const codes = coverageList.map((c) => String(c.code || '').toUpperCase());
+    const onlyUs = codes.every((c) => c === 'US' || c === 'USA');
+    if (onlyUs) return { region: 'United States', isUs: true, countryCode: 'US' };
+    const scopeLower = String(scope || type || '').toLowerCase();
+    if (scopeLower === 'global' || scopeLower === 'worldwide') {
+      return { region: 'Global', isUs: false, countryCode: 'GL' };
+    }
+    if (scopeLower === 'continent' || /europe/i.test(name)) {
+      return { region: 'Europe', isUs: false, countryCode: 'EU' };
+    }
+    // Multi-country regional pack — use first country name + " +" for searchability
+    const first = String(coverageList[0]?.country_name || coverageList[0]?.name || 'International');
+    return { region: `${first} +${coverageList.length - 1}`, isUs: false, countryCode: 'RG' };
+  }
+
   const hay = `${name || ''} ${country || ''} ${type || ''} ${scope || ''}`.toUpperCase();
   const code = String(country || '').trim().toUpperCase();
   const scopeLower = String(scope || type || '').toLowerCase();
@@ -123,25 +162,30 @@ function detectRegion(
   };
 }
 
+function stripProviderBranding(name: string): string {
+  return name
+    .replace(/eSIM\s*Card|esimcard|Visible|DepinSim|Firsty|Telnyx/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[-–—:\s]+|[-–—:\s]+$/g, '')
+    .trim();
+}
+
 function dataMbFromPkg(p: Record<string, unknown>): number {
-  const candidates = [
-    p.data_mb,
-    p.dataMb,
-    p.data,
-    p.capacity_mb,
-    p.amount_mb,
-    p.mb,
-    p.data_quantity,
-  ];
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n > 0) {
-      // Some APIs return GB in a "data" field when unit is GB
-      if (n > 0 && n < 100 && String(p.data_unit || p.unit || '').toUpperCase().includes('GB')) {
-        return Math.round(n * 1024);
-      }
-      return Math.round(n);
-    }
+  const unlimited = p.unlimited;
+  if (unlimited === true || unlimited === 1 || unlimited === '1' || unlimited === 'true') {
+    return -1;
+  }
+  const name = String(p.name || '');
+  if (/unlimited/i.test(name)) return -1;
+
+  const unit = String(p.data_unit || p.unit || '').toUpperCase();
+  const qty = Number(p.data_quantity ?? p.data_mb ?? p.dataMb ?? p.data ?? p.capacity_mb ?? p.amount_mb ?? p.mb);
+  if (Number.isFinite(qty) && qty > 0) {
+    if (unit.includes('GB')) return Math.round(qty * 1024);
+    if (unit.includes('MB')) return Math.round(qty);
+    // No unit: small numbers are usually GB in this API; large are MB
+    if (qty <= 512) return Math.round(qty * 1024);
+    return Math.round(qty);
   }
   const gb = Number(p.data_gb ?? p.dataGb ?? p.gb ?? p.capacity_gb);
   if (Number.isFinite(gb) && gb > 0) return Math.round(gb * 1024);
@@ -197,6 +241,26 @@ function unwrapList(data: unknown): Record<string, unknown>[] {
     }
   }
   return [];
+}
+
+function extractMeta(data: unknown): { lastPage: number; total: number; perPage: number; currentPage: number } | null {
+  if (!data || typeof data !== 'object') return null;
+  const o = data as Record<string, unknown>;
+  const meta = (o.meta || o.pagination || (o.data && typeof o.data === 'object' && !Array.isArray(o.data) ? o.data : null)) as
+    | Record<string, unknown>
+    | null;
+  if (!meta || typeof meta !== 'object') return null;
+  const lastPage = Number(meta.lastPage ?? meta.last_page ?? meta.total_pages ?? 1);
+  const total = Number(meta.total ?? meta.total_count ?? 0);
+  const perPage = Number(meta.perPage ?? meta.per_page ?? 20);
+  const currentPage = Number(meta.currentPage ?? meta.current_page ?? 1);
+  if (!Number.isFinite(lastPage) || lastPage < 1) return null;
+  return {
+    lastPage: Math.round(lastPage),
+    total: Number.isFinite(total) ? Math.round(total) : 0,
+    perPage: Number.isFinite(perPage) ? Math.round(perPage) : 20,
+    currentPage: Number.isFinite(currentPage) ? Math.round(currentPage) : 1,
+  };
 }
 
 type TokenCheck = { extension?: string; status?: boolean; message?: string };
@@ -313,42 +377,52 @@ export class EsimCardProvider implements EsimProvider {
     );
     if (!id) return null;
 
-    const name = String(p.name || p.title || p.package_name || `eSIMCard plan ${id}`);
+    const rawName = String(p.name || p.title || p.package_name || `Plan ${id}`);
+    const coverage = Array.isArray(p.coverage) ? (p.coverage as Record<string, unknown>[]) : null;
     const countryRaw =
       p.country_code ||
       p.countryCode ||
       p.country ||
       p.location ||
+      (coverage && coverage[0]
+        ? coverage[0].country_name || coverage[0].name || coverage[0].code
+        : '') ||
       (Array.isArray(p.countries) ? (p.countries as string[])[0] : '');
     const type = String(p.type || p.package_type || p.packageType || '');
     const scope = String(p.scope || '');
     const { region, isUs, countryCode } = detectRegion(
-      name,
+      rawName,
       countryRaw ? String(countryRaw) : null,
       type,
-      scope
+      scope,
+      coverage
     );
     const dataMb = dataMbFromPkg(p);
     const validityDays = validityDaysFromPkg(p);
     const wholesale = wholesaleCentsFromPkg(p);
     const priceCents = retailCentsFromWholesale(wholesale, dataMb);
     const spn = spnName();
+    const dataLabel = dataMb < 0 ? 'Unlimited data' : dataMb >= 1024 ? `${(dataMb / 1024).toFixed(dataMb % 1024 === 0 ? 0 : 1)} GB` : `${dataMb} MB`;
+    let name = stripProviderBranding(rawName);
+    if (!name) {
+      name = `${region} ${dataLabel} · ${validityDays} days`;
+    }
 
-    // Customer-facing copy is Weeble-only (no upstream brand names).
+    // Customer-facing copy is Weeble-only (never show upstream provider names).
     return {
       id: `esimcard-${id}`.slice(0, 64),
       providerId: id,
-      name: name.replace(/eSIMCard|esimcard|Visible|DepinSim|Firsty|Telnyx/gi, spn),
+      name,
       region,
       countryCode,
       dataMb,
       validityDays,
       priceCents,
       currency: String(p.currency || 'USD'),
-      description: `${spn} — ${region} ${dataMb < 0 ? 'Unlimited' : dataMb + ' MB'} / ${validityDays} days.`,
-      popular: isUs && dataMb >= 1024 && dataMb <= 10240,
+      description: `${spn} eSIM — ${region}. ${dataLabel} for ${validityDays} days.`,
+      popular: isUs && (dataMb < 0 || (dataMb >= 5 * 1024 && dataMb <= 50 * 1024)),
       isUs,
-      features: [`${spn} eSIM`, 'Instant QR', '4G/5G', 'Hotspot OK'],
+      features: [`${spn} eSIM`, 'Instant QR', '4G/5G', 'Hotspot OK', region],
     };
   }
 
@@ -373,7 +447,37 @@ export class EsimCardProvider implements EsimProvider {
       const batch = unwrapList(res);
       if (!batch.length) break;
       out.push(...batch);
-      if (batch.length < 10) break;
+      const meta = extractMeta(res);
+      if (meta && page >= meta.lastPage) break;
+      if (!meta && batch.length < 10) break;
+    }
+    return out;
+  }
+
+  /** Fetch every packages page in parallel batches (live catalog ~6000+ / 300+ pages). */
+  private async fetchFullPackageCatalog(): Promise<Record<string, unknown>[]> {
+    const first = await this.api<unknown>('packages', { query: { page: 1 } });
+    if (!first) return [];
+    const out = [...unwrapList(first)];
+    const meta = extractMeta(first);
+    const lastPage = meta?.lastPage || 1;
+    const totalHint = meta?.total || 0;
+    console.info(`[EsimCard] catalog page 1/${lastPage} (meta.total=${totalHint})`);
+
+    const CONCURRENCY = 20;
+    for (let start = 2; start <= lastPage; start += CONCURRENCY) {
+      const pages: number[] = [];
+      for (let p = start; p < start + CONCURRENCY && p <= lastPage; p++) pages.push(p);
+      const results = await Promise.all(
+        pages.map((page) => this.api<unknown>('packages', { query: { page } }))
+      );
+      for (const res of results) {
+        if (!res) continue;
+        out.push(...unwrapList(res));
+      }
+      if (start === 2 || start % 80 === 2 || start + CONCURRENCY > lastPage) {
+        console.info(`[EsimCard] catalog fetched through page ${Math.min(start + CONCURRENCY - 1, lastPage)}/${lastPage} (rows=${out.length})`);
+      }
     }
     return out;
   }
@@ -391,15 +495,17 @@ export class EsimCardProvider implements EsimProvider {
 
   private isUsPackage(p: Record<string, unknown>): boolean {
     const name = String(p.name || p.title || p.package_name || '');
+    const coverage = Array.isArray(p.coverage) ? (p.coverage as Record<string, unknown>[]) : null;
     const countryRaw =
       p.country_code ||
       p.countryCode ||
       p.country ||
       p.location ||
+      (coverage && coverage[0] ? coverage[0].country_name || coverage[0].code : '') ||
       (Array.isArray(p.countries) ? (p.countries as string[])[0] : '');
     const type = String(p.type || p.package_type || p.packageType || '');
     const scope = String(p.scope || '');
-    return detectRegion(name, countryRaw ? String(countryRaw) : null, type, scope).isUs;
+    return detectRegion(name, countryRaw ? String(countryRaw) : null, type, scope, coverage).isUs;
   }
 
   /** Fetch a live package row by preferred id (detail endpoint and/or packages?id=). */
@@ -570,44 +676,132 @@ export class EsimCardProvider implements EsimProvider {
     return plans.length === 4 ? plans : null;
   }
 
+  /**
+   * Full live eSIMCard catalog (thousands of packages). US first, then global/international.
+   * Never returns MockProvider plans when a token is configured.
+   */
   async listPlans(): Promise<EsimPlan[]> {
-    // Exactly 4 Weeble US retail cards — resolve package_type_ids from live eSIMCard when possible.
-    try {
-      if (this.token) {
-        if (livePlansCache && Date.now() - livePlansCache.at < LIVE_CACHE_TTL_MS) {
-          return livePlansCache.plans.map((p) => ({ ...p, features: [...p.features] }));
-        }
-        const live = await this.resolveWeebleTiersFromLive();
-        if (live?.length === 4) {
-          livePlansCache = { at: Date.now(), plans: live };
-          console.info(
-            `[EsimCard] storefront 4 tiers: ${live.map((p) => `${p.id}→${p.providerId}`).join(' | ')}`
-          );
-          return live.map((p) => ({ ...p, features: [...p.features] }));
-        }
-        console.warn('[EsimCard] live tier resolve incomplete; sticky preferred ids');
-      }
-    } catch (e) {
-      console.warn('[EsimCard] listPlans live resolve failed; sticky retail', e);
+    if (!this.token) {
+      console.warn('[EsimCard] no token — empty catalog (no mock leak)');
+      return [];
     }
-    const plans = listWeebleRetailPlans();
-    livePlansCache = { at: Date.now(), plans };
-    return plans;
+
+    if (livePlansCache && Date.now() - livePlansCache.at < LIVE_CACHE_TTL_MS) {
+      return livePlansCache.plans.map((p) => ({ ...p, features: [...p.features] }));
+    }
+
+    // Serve slightly stale cache while a refresh is desirable
+    const stale = livePlansCache?.plans;
+
+    try {
+      const collected = await this.fetchFullPackageCatalog();
+      // Merge global endpoint extras (usually already in full list)
+      const globalExtra = await this.fetchPackagePages('packages/global', {}, 8);
+      collected.push(...globalExtra);
+
+      if (!collected.length) {
+        console.warn('[EsimCard] no packages from API — returning stale/empty (no mock)');
+        return (stale || []).map((p) => ({ ...p, features: [...p.features] }));
+      }
+
+      const seen = new Set<string>();
+      const plans: EsimPlan[] = [];
+      collected.forEach((raw, i) => {
+        const mapped = this.mapPackage(raw, i);
+        if (!mapped || seen.has(mapped.providerId)) return;
+        if (mapped.providerId.startsWith('mock-') || mapped.id.startsWith('mock-')) return;
+        seen.add(mapped.providerId);
+        plans.push(mapped);
+      });
+
+      if (!plans.length) {
+        console.warn('[EsimCard] packages unmapped — returning stale/empty (no mock)');
+        return (stale || []).map((p) => ({ ...p, features: [...p.features] }));
+      }
+
+      const ordered = this.preferUsGlobal(plans);
+      livePlansCache = { at: Date.now(), plans: ordered };
+      console.info(
+        `[EsimCard] live catalog: ${ordered.length} plans (raw=${collected.length}, US=${ordered.filter((p) => p.isUs).length})`
+      );
+      return ordered.map((p) => ({ ...p, features: [...p.features] }));
+    } catch (e) {
+      console.warn('[EsimCard] listPlans failed — no mock fallback', e);
+      return (stale || []).map((p) => ({ ...p, features: [...p.features] }));
+    }
+  }
+
+  /** Optional Popular US strip: 5/10/50/Unlimited resolved to real package_type_ids. */
+  async listPopularWeebleTiers(): Promise<EsimPlan[]> {
+    try {
+      const live = await this.resolveWeebleTiersFromLive();
+      if (live?.length) return live.map((p) => ({ ...p, features: [...p.features] }));
+    } catch (e) {
+      console.warn('[EsimCard] popular tiers resolve failed', e);
+    }
+    // Prefer matching preferred ids from full catalog cache before sticky retail
+    const catalog = livePlansCache?.plans || [];
+    const fromCatalog: EsimPlan[] = [];
+    for (const tier of WEEBLE_TIER_DEFS) {
+      const hit = catalog.find((p) => p.providerId === tier.preferredPackageTypeId);
+      if (hit) {
+        fromCatalog.push({
+          ...hit,
+          id: tier.id,
+          name: tier.name,
+          description: tier.description,
+          popular: tier.popular,
+          features: [...tier.features],
+          dataMb: tier.targetDataMb < 0 ? -1 : hit.dataMb,
+        });
+      }
+    }
+    if (fromCatalog.length) return fromCatalog;
+    return listWeebleRetailPlans();
+  }
+
+  async listCountries(): Promise<Array<{ code: string; name: string }>> {
+    if (!this.token) return [];
+    try {
+      const res = await this.api<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+        'packages/country'
+      );
+      const rows = Array.isArray(res) ? res : Array.isArray(res?.data) ? res!.data! : unwrapList(res);
+      const countries = rows
+        .map((r) => ({
+          code: String(r.code || r.country_code || '').toUpperCase(),
+          name: String(r.name || r.country_name || ''),
+        }))
+        .filter((c) => c.code && c.name);
+      // US first
+      countries.sort((a, b) => {
+        if (a.code === 'US') return -1;
+        if (b.code === 'US') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      return countries;
+    } catch (e) {
+      console.warn('[EsimCard] listCountries failed', e);
+      return [];
+    }
   }
 
   async getPlan(id: string): Promise<EsimPlan | null> {
     try {
       if (id.startsWith('mock-') || id.includes('mock-')) return null;
 
+      // Popular Weeble tier ids still resolve to live package_type_ids
       const tier = getWeebleTierDef(id);
       if (tier) {
-        const plans = await this.listPlans();
-        const hit = plans.find((p) => p.id === tier.id || p.providerId === id);
-        if (hit) return { ...hit, features: [...hit.features] };
-        return getWeebleRetailPlan(tier.id);
+        try {
+          const popular = await this.listPopularWeebleTiers();
+          const hit = popular.find((p) => p.id === tier.id || p.providerId === id);
+          if (hit) return { ...hit, features: [...hit.features] };
+        } catch {
+          /* continue */
+        }
       }
 
-      // Already-resolved weeble id from listPlans cache
       if (livePlansCache) {
         const hit = livePlansCache.plans.find(
           (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^esimcard-/, '')
@@ -615,10 +809,8 @@ export class EsimCardProvider implements EsimProvider {
         if (hit) return { ...hit, features: [...hit.features] };
       }
 
-      const retail = getWeebleRetailPlan(id);
-      if (retail) return retail;
+      if (!this.token) return tier ? getWeebleRetailPlan(tier.id) : null;
 
-      if (!this.token) return null;
       const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
       const detail = await this.api<Record<string, unknown> | { data?: Record<string, unknown> }>(
         `package/detail/${encodeURIComponent(providerId)}`
@@ -631,7 +823,15 @@ export class EsimCardProvider implements EsimProvider {
         const mapped = this.mapPackage(raw, 0);
         if (mapped) return mapped;
       }
-      return null;
+
+      // Last resort: search catalog (may trigger full fetch)
+      const plans = await this.listPlans();
+      const found = plans.find(
+        (p) => p.id === id || p.providerId === id || p.providerId === providerId || (tier && p.id === tier.id)
+      );
+      if (found) return { ...found, features: [...found.features] };
+
+      return tier ? getWeebleRetailPlan(tier.id) : null;
     } catch (e) {
       console.warn('[EsimCard] getPlan failed (no mock fallback)', e);
       return null;
@@ -670,16 +870,20 @@ export class EsimCardProvider implements EsimProvider {
 
   async purchase(planId: string, userId: string): Promise<PurchaseResult> {
     try {
-      // Prefer live-resolved Weeble tier (real package_type_id), then sticky retail, then mock.
-      const plan =
-        (await this.getPlan(planId)) ||
-        getWeebleRetailPlan(planId) ||
-        (await this.fallback.getPlan(planId));
+      // Resolve from live catalog / Weeble popular tiers. Never use MockProvider catalog when token is set.
+      const plan = (await this.getPlan(planId)) || getWeebleRetailPlan(planId);
       if (!plan) throw new Error('Plan not found');
+      if (plan.id.startsWith('mock-') || plan.providerId.startsWith('mock-')) {
+        throw new Error('Plan not available');
+      }
 
-      // Free starter / $0 plans stay local — never bill eSIMCard.
-      if (plan.priceCents <= 0 || !this.token) {
-        return this.fallback.purchase(planId, userId);
+      // Free / no-token path only — never bill upstream for $0.
+      if (plan.priceCents <= 0) {
+        if (!this.token) return this.fallback.purchase(planId, userId);
+        throw new Error('Free plans are not available on live checkout');
+      }
+      if (!this.token) {
+        throw new Error('Live provider credentials are not configured');
       }
 
       const packageTypeId = plan.providerId || plan.id.replace(/^esimcard-/, '');
@@ -694,8 +898,7 @@ export class EsimCardProvider implements EsimProvider {
       });
 
       if (!purchased) {
-        console.warn('[EsimCard] purchase returned null; mock fallback');
-        return this.fallback.purchase(planId, userId);
+        throw new Error('Purchase failed with upstream provider');
       }
 
       let fields = this.extractPurchaseFields(purchased);
@@ -730,8 +933,7 @@ export class EsimCardProvider implements EsimProvider {
       }
 
       if (!fields.iccid && !fields.qrPayload && !fields.activationCode) {
-        console.warn('[EsimCard] purchase missing ICCID/QR; mock fallback');
-        return this.fallback.purchase(planId, userId);
+        throw new Error('Purchase succeeded but eSIM details were missing');
       }
 
       const spn = spnName();
@@ -813,8 +1015,8 @@ export class EsimCardProvider implements EsimProvider {
         expiresAt,
       };
     } catch (e) {
-      console.warn('[EsimCard] purchase failed, mock fallback', e);
-      return this.fallback.purchase(planId, userId);
+      console.warn('[EsimCard] purchase failed', e);
+      throw e instanceof Error ? e : new Error('Purchase failed');
     }
   }
 

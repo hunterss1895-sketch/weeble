@@ -29,9 +29,9 @@ export function getEsimProvider(): EsimProvider {
   }
   if (forced === 'esimcard') {
     if (!hasEsimCard) {
-      console.warn('[providers] PROVIDER=esimcard but no ESIMCARD_TOKEN; using MockProvider (Demo)');
-      return new MockProvider();
+      console.warn('[providers] PROVIDER=esimcard but no ESIMCARD_TOKEN; empty live provider (no mock catalog)');
     }
+    // Always EsimCardProvider when forced — listPlans never leaks MockProvider catalog.
     return new EsimCardProvider();
   }
   if (forced === 'telnyx') {

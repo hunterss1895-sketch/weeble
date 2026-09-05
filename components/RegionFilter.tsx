@@ -12,6 +12,7 @@ const REGIONS = [
   { value: 'Global', label: 'Global' },
 ];
 
+/** Legacy region chips — PlansBrowser is preferred for the full catalog. */
 export function RegionFilter() {
   const router = useRouter();
   const params = useSearchParams();
@@ -19,12 +20,12 @@ export function RegionFilter() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="text-sm font-medium text-slate-600" htmlFor="region">
+      <label className="text-sm font-medium text-ink-300" htmlFor="region">
         Region
       </label>
       <select
         id="region"
-        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-weeble-400 focus:ring-2 focus:ring-weeble-100"
+        className="rounded-xl border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-50 outline-none focus:border-weeble-500 focus:ring-2 focus:ring-weeble-500/30"
         value={current}
         onChange={(e) => {
           const v = e.target.value;
