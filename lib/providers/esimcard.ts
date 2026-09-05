@@ -794,7 +794,9 @@ export class EsimCardProvider implements EsimProvider {
 
       const ordered = this.preferUsGlobal(plans);
       livePlansCache = { at: Date.now(), plans: ordered };
-      writeDiskCatalog(ordered);
+      // Only persist substantial catalogs (avoid caching rate-limited partials)
+      if (ordered.length >= 2000) writeDiskCatalog(ordered);
+      else console.warn(`[EsimCard] skipping disk cache — only ${ordered.length} plans (likely partial)`);
       console.info(
         `[EsimCard] live catalog: ${ordered.length} plans (raw=${collected.length}, US=${ordered.filter((p) => p.isUs).length})`
       );
