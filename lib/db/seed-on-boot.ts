@@ -157,10 +157,14 @@ export async function ensureSeeded() {
   if (seeded) return;
   try {
     if (useLiveEsimCard()) {
-      // Live eSIMCard storefront: purge seeded mock catalog so MockProvider cannot leak DB rows.
-      const deleted = await prisma.plan.deleteMany({ where: { id: { startsWith: 'mock-' } } });
-      if (deleted.count) {
-        console.info(`[seed] purged ${deleted.count} mock-* plans (PROVIDER=esimcard)`);
+      // Live eSIMCard: do NOT re-upsert mock catalog. Hide leftover mock rows from any DB readers
+      // without deleting (purchases may still FK-reference them).
+      const hidden = await prisma.plan.updateMany({
+        where: { id: { startsWith: 'mock-' } },
+        data: { popular: false, description: '[hidden-mock] superseded by eSIMCard live catalog' },
+      });
+      if (hidden.count) {
+        console.info(`[seed] marked ${hidden.count} mock-* plans hidden (PROVIDER=esimcard)`);
       }
     } else {
       for (const plan of plans) {

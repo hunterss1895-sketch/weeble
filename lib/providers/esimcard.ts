@@ -25,23 +25,12 @@
  * On missing token only, fall back to MockProvider. With a live token, listPlans never returns mock.
  */
 import dns from 'node:dns';
-import { createRequire } from 'node:module';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
 
-// VPS has IPv6; eSIMCard whitelist is IPv4-only — force A / family 4 so Node fetch is not 403'd.
+// VPS has IPv6; eSIMCard whitelist is IPv4-only — prefer A records (also set NODE_OPTIONS=--dns-result-order=ipv4first on start).
 dns.setDefaultResultOrder('ipv4first');
-try {
-  const require = createRequire(__filename);
-  const undici = require('undici') as {
-    Agent: new (opts: { connect: { family: number } }) => unknown;
-    setGlobalDispatcher: (dispatcher: unknown) => void;
-  };
-  undici.setGlobalDispatcher(new undici.Agent({ connect: { family: 4 } }));
-} catch (e) {
-  console.warn('[EsimCard] undici IPv4 agent unavailable', e);
-}
 
 /** Short in-memory cache of LIVE eSIMCard plans only (never mock). */
 let livePlansCache: { at: number; plans: EsimPlan[] } | null = null;
