@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getWeebleRetailPlan } from '@/lib/plans/weeble-plans';
+import { getEsimProvider } from '@/lib/providers';
 import { getSession } from '@/lib/auth';
 import { Badge, Card } from '@/components/ui';
 import { formatData, formatPrice } from '@/lib/utils';
@@ -13,7 +13,7 @@ export const revalidate = 0;
 export default async function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await ensureSeeded();
   const { id } = await params;
-  const plan = getWeebleRetailPlan(id);
+  const plan = await getEsimProvider().getPlan(id);
   if (!plan) notFound();
   const session = await getSession();
   const price = formatPrice(plan.priceCents, plan.currency).replace('.00', '');

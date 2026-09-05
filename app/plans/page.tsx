@@ -1,5 +1,5 @@
 import { PlanCard } from '@/components/PlanCard';
-import { listWeebleRetailPlans } from '@/lib/plans/weeble-plans';
+import { getEsimProvider } from '@/lib/providers';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 export default async function PlansPage() {
   await ensureSeeded();
-  const plans = listWeebleRetailPlans();
+  const plans = await getEsimProvider().listPlans();
 
   return (
     <div className="space-y-10">

@@ -28,7 +28,14 @@ import dns from 'node:dns';
 import { prisma } from '@/lib/db/prisma';
 import { MockProvider } from './mock';
 import type { EsimPlan, EsimProvider, ProviderDevice, PurchaseResult, UsageSummary } from './types';
-import { getWeebleRetailPlan, listWeebleRetailPlans } from '@/lib/plans/weeble-plans';
+import {
+  WEEBLE_TIER_DEFS,
+  buildWeeblePlanFromResolved,
+  getWeebleRetailPlan,
+  getWeebleTierDef,
+  listWeebleRetailPlans,
+  type WeebleTierDef,
+} from '@/lib/plans/weeble-plans';
 
 // VPS has IPv6; eSIMCard whitelist is IPv4-only — prefer A records (also set NODE_OPTIONS=--dns-result-order=ipv4first on start).
 dns.setDefaultResultOrder('ipv4first');
@@ -350,7 +357,6 @@ export class EsimCardProvider implements EsimProvider {
     const global = plans.filter((p) => !p.isUs && (p.countryCode === 'GL' || /global/i.test(p.region)));
     const rest = plans.filter((p) => !us.includes(p) && !global.includes(p));
     const ordered = [...us, ...global, ...rest];
-    // Prefer US/global first; if we have any, return full ordered list (already prioritized)
     if (us.length || global.length) return ordered;
     return plans;
   }
@@ -367,15 +373,223 @@ export class EsimCardProvider implements EsimProvider {
       const batch = unwrapList(res);
       if (!batch.length) break;
       out.push(...batch);
-      // Stop early if page looks short (typical page size ~15–50)
       if (batch.length < 10) break;
     }
     return out;
   }
 
+  private packageTypeIdOf(p: Record<string, unknown>): string {
+    return String(p.package_type_id ?? p.packageTypeId ?? p.id ?? p.package_id ?? p.slug ?? '');
+  }
+
+  private isUnlimitedPkg(p: Record<string, unknown>, dataMb: number): boolean {
+    const name = String(p.name || p.title || p.package_name || '');
+    if (/unlimited/i.test(name)) return true;
+    // Treat very large caps as unlimited for matching
+    return dataMb >= 500_000 || dataMb < 0;
+  }
+
+  private isUsPackage(p: Record<string, unknown>): boolean {
+    const name = String(p.name || p.title || p.package_name || '');
+    const countryRaw =
+      p.country_code ||
+      p.countryCode ||
+      p.country ||
+      p.location ||
+      (Array.isArray(p.countries) ? (p.countries as string[])[0] : '');
+    const type = String(p.type || p.package_type || p.packageType || '');
+    const scope = String(p.scope || '');
+    return detectRegion(name, countryRaw ? String(countryRaw) : null, type, scope).isUs;
+  }
+
+  /** Fetch a live package row by preferred id (detail endpoint and/or packages?id=). */
+  private async fetchPackageById(id: string): Promise<Record<string, unknown> | null> {
+    const detail = await this.api<Record<string, unknown> | { data?: Record<string, unknown> }>(
+      `package/detail/${encodeURIComponent(id)}`
+    );
+    if (detail) {
+      const raw =
+        detail && typeof detail === 'object' && 'data' in detail && (detail as { data?: Record<string, unknown> }).data
+          ? (detail as { data: Record<string, unknown> }).data
+          : (detail as Record<string, unknown>);
+      if (raw && typeof raw === 'object') return raw;
+    }
+    const listed = await this.api<unknown>('packages', { query: { id, page: 1 } });
+    const batch = unwrapList(listed);
+    if (batch.length) {
+      const hit =
+        batch.find((p) => this.packageTypeIdOf(p) === id) ||
+        batch.find((p) => String(p.id || '') === id) ||
+        batch[0];
+      return hit || null;
+    }
+    return null;
+  }
+
+  /**
+   * Build a US-focused package index for closest-size fallback.
+   * Does NOT dump the full 6000+ catalog into the UI — only used for matching.
+   */
+  private async fetchUsPackageIndex(): Promise<Record<string, unknown>[]> {
+    const collected: Record<string, unknown>[] = [];
+    const seen = new Set<string>();
+
+    const pushAll = (rows: Record<string, unknown>[]) => {
+      for (const p of rows) {
+        const id = this.packageTypeIdOf(p);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        collected.push(p);
+      }
+    };
+
+    // Country endpoint first (usually local/US-heavy)
+    pushAll(await this.fetchPackagePages('packages/country', {}, 5));
+
+    // Explicit US / local filters when available
+    pushAll(await this.fetchPackagePages('packages', { type: 'local', package_type: 'local' }, 3));
+    pushAll(await this.fetchPackagePages('packages', { country: 'US' }, 3));
+    pushAll(await this.fetchPackagePages('packages', { country_code: 'US' }, 2));
+
+    // A few general pages as safety net (capped — never expose full catalog)
+    if (collected.filter((p) => this.isUsPackage(p)).length < 8) {
+      pushAll(await this.fetchPackagePages('packages', {}, 6));
+    }
+
+    return collected;
+  }
+
+  private pickClosestUsPackage(
+    index: Record<string, unknown>[],
+    tier: WeebleTierDef
+  ): Record<string, unknown> | null {
+    const us = index.filter((p) => this.isUsPackage(p));
+    const pool = us.length ? us : index;
+    if (!pool.length) return null;
+
+    if (tier.targetDataMb < 0) {
+      // Prefer named Unlimited / highest US data package
+      const unlimited = pool.filter((p) => this.isUnlimitedPkg(p, dataMbFromPkg(p)));
+      if (unlimited.length) {
+        // Prefer "Plus" / higher wholesale as "best" unlimited
+        return unlimited.sort((a, b) => wholesaleCentsFromPkg(b) - wholesaleCentsFromPkg(a))[0];
+      }
+      return pool.sort((a, b) => dataMbFromPkg(b) - dataMbFromPkg(a))[0];
+    }
+
+    const target = tier.targetDataMb;
+    let best: Record<string, unknown> | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const p of pool) {
+      const mb = dataMbFromPkg(p);
+      if (this.isUnlimitedPkg(p, mb)) continue;
+      const score = Math.abs(mb - target);
+      // Prefer exact / near matches; slight preference for >= target
+      const adj = score + (mb < target * 0.85 ? 5000 : 0);
+      if (adj < bestScore) {
+        bestScore = adj;
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  private resolveTierFromPkg(tier: WeebleTierDef, pkg: Record<string, unknown>): EsimPlan {
+    const packageTypeId = this.packageTypeIdOf(pkg) || tier.preferredPackageTypeId;
+    const liveDataMb = dataMbFromPkg(pkg);
+    const wholesale = wholesaleCentsFromPkg(pkg);
+    const validityDays = validityDaysFromPkg(pkg);
+    return buildWeeblePlanFromResolved({
+      tier,
+      packageTypeId,
+      wholesaleCents: wholesale,
+      validityDays,
+      liveDataMb: tier.targetDataMb < 0 ? -1 : liveDataMb,
+    });
+  }
+
+  /** Resolve exactly 4 Weeble tiers against live eSIMCard packages. */
+  private async resolveWeebleTiersFromLive(): Promise<EsimPlan[] | null> {
+    if (!this.token) return null;
+
+    const preferredHits = await Promise.all(
+      WEEBLE_TIER_DEFS.map(async (tier) => {
+        const pkg = await this.fetchPackageById(tier.preferredPackageTypeId);
+        return { tier, pkg };
+      })
+    );
+
+    const needIndex = preferredHits.some((h) => !h.pkg);
+    const index = needIndex ? await this.fetchUsPackageIndex() : [];
+
+    // Also index preferred hits so closest matching can use them if needed later
+    const indexById = new Map<string, Record<string, unknown>>();
+    for (const p of index) {
+      const id = this.packageTypeIdOf(p);
+      if (id) indexById.set(id, p);
+    }
+    for (const h of preferredHits) {
+      if (h.pkg) {
+        const id = this.packageTypeIdOf(h.pkg) || h.tier.preferredPackageTypeId;
+        indexById.set(id, h.pkg);
+        indexById.set(h.tier.preferredPackageTypeId, h.pkg);
+      }
+    }
+
+    const plans: EsimPlan[] = [];
+    for (const { tier, pkg } of preferredHits) {
+      let chosen = pkg;
+      let source = 'preferred';
+      if (!chosen) {
+        // Preferred id may still appear in the broader index under another field shape
+        chosen = indexById.get(tier.preferredPackageTypeId) || null;
+      }
+      if (!chosen) {
+        chosen = this.pickClosestUsPackage(index, tier);
+        source = 'closest-us';
+      }
+      if (!chosen) {
+        console.warn(`[EsimCard] no live package for tier ${tier.key}; using sticky preferred id`);
+        plans.push(
+          buildWeeblePlanFromResolved({
+            tier,
+            packageTypeId: tier.preferredPackageTypeId,
+          })
+        );
+        continue;
+      }
+
+      const plan = this.resolveTierFromPkg(tier, chosen);
+      const wholesale = wholesaleCentsFromPkg(chosen);
+      console.info(
+        `[EsimCard] tier=${tier.key} source=${source} package_type_id=${plan.providerId} wholesale_cents=${wholesale} retail_cents=${plan.priceCents}`
+      );
+      plans.push(plan);
+    }
+
+    return plans.length === 4 ? plans : null;
+  }
+
   async listPlans(): Promise<EsimPlan[]> {
-    // Storefront: exactly 4 fixed Weeble US retail plans (never dump full upstream catalog / mock seed).
-    // package_type_id mapping lives in lib/plans/weeble-plans.ts comments only.
+    // Exactly 4 Weeble US retail cards — resolve package_type_ids from live eSIMCard when possible.
+    try {
+      if (this.token) {
+        if (livePlansCache && Date.now() - livePlansCache.at < LIVE_CACHE_TTL_MS) {
+          return livePlansCache.plans.map((p) => ({ ...p, features: [...p.features] }));
+        }
+        const live = await this.resolveWeebleTiersFromLive();
+        if (live?.length === 4) {
+          livePlansCache = { at: Date.now(), plans: live };
+          console.info(
+            `[EsimCard] storefront 4 tiers: ${live.map((p) => `${p.id}→${p.providerId}`).join(' | ')}`
+          );
+          return live.map((p) => ({ ...p, features: [...p.features] }));
+        }
+        console.warn('[EsimCard] live tier resolve incomplete; sticky preferred ids');
+      }
+    } catch (e) {
+      console.warn('[EsimCard] listPlans live resolve failed; sticky retail', e);
+    }
     const plans = listWeebleRetailPlans();
     livePlansCache = { at: Date.now(), plans };
     return plans;
@@ -383,13 +597,27 @@ export class EsimCardProvider implements EsimProvider {
 
   async getPlan(id: string): Promise<EsimPlan | null> {
     try {
-      // Never resolve seeded mock plans into the storefront
       if (id.startsWith('mock-') || id.includes('mock-')) return null;
+
+      const tier = getWeebleTierDef(id);
+      if (tier) {
+        const plans = await this.listPlans();
+        const hit = plans.find((p) => p.id === tier.id || p.providerId === id);
+        if (hit) return { ...hit, features: [...hit.features] };
+        return getWeebleRetailPlan(tier.id);
+      }
+
+      // Already-resolved weeble id from listPlans cache
+      if (livePlansCache) {
+        const hit = livePlansCache.plans.find(
+          (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^esimcard-/, '')
+        );
+        if (hit) return { ...hit, features: [...hit.features] };
+      }
 
       const retail = getWeebleRetailPlan(id);
       if (retail) return retail;
 
-      // Fallback: still allow purchase-time resolve by provider package id if needed
       if (!this.token) return null;
       const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
       const detail = await this.api<Record<string, unknown> | { data?: Record<string, unknown> }>(
@@ -442,7 +670,11 @@ export class EsimCardProvider implements EsimProvider {
 
   async purchase(planId: string, userId: string): Promise<PurchaseResult> {
     try {
-      const plan = getWeebleRetailPlan(planId) || (await this.getPlan(planId)) || (await this.fallback.getPlan(planId));
+      // Prefer live-resolved Weeble tier (real package_type_id), then sticky retail, then mock.
+      const plan =
+        (await this.getPlan(planId)) ||
+        getWeebleRetailPlan(planId) ||
+        (await this.fallback.getPlan(planId));
       if (!plan) throw new Error('Plan not found');
 
       // Free starter / $0 plans stay local — never bill eSIMCard.
@@ -451,6 +683,7 @@ export class EsimCardProvider implements EsimProvider {
       }
 
       const packageTypeId = plan.providerId || plan.id.replace(/^esimcard-/, '');
+      console.info(`[EsimCard] purchase plan=${plan.id} package_type_id=${packageTypeId}`);
       const purchased = await this.api<Record<string, unknown>>('package/purchase', {
         method: 'POST',
         body: JSON.stringify({
