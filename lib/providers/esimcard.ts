@@ -410,7 +410,7 @@ export class EsimCardProvider implements EsimProvider {
 
     // Customer-facing copy is Weeble-only (never show upstream provider names).
     return {
-      id: `esimcard-${id}`.slice(0, 64),
+      id: `w-${id}`.slice(0, 64),
       providerId: id,
       name,
       region,
@@ -454,9 +454,25 @@ export class EsimCardProvider implements EsimProvider {
     return out;
   }
 
-  /** Fetch every packages page in parallel batches (live catalog ~6000+ / 300+ pages). */
+  private async apiPageWithRetry(
+    path: string,
+    page: number,
+    attempts = 4
+  ): Promise<unknown | null> {
+    let delay = 400;
+    for (let i = 0; i < attempts; i++) {
+      const res = await this.api<unknown>(path, { query: { page } });
+      if (res) return res;
+      // api() logs 429 as warn and returns null — back off and retry
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(8000, delay * 2);
+    }
+    return null;
+  }
+
+  /** Fetch every packages page in gentle parallel batches (live catalog ~6000+ / 300+ pages). */
   private async fetchFullPackageCatalog(): Promise<Record<string, unknown>[]> {
-    const first = await this.api<unknown>('packages', { query: { page: 1 } });
+    const first = await this.apiPageWithRetry('packages', 1);
     if (!first) return [];
     const out = [...unwrapList(first)];
     const meta = extractMeta(first);
@@ -464,20 +480,30 @@ export class EsimCardProvider implements EsimProvider {
     const totalHint = meta?.total || 0;
     console.info(`[EsimCard] catalog page 1/${lastPage} (meta.total=${totalHint})`);
 
-    const CONCURRENCY = 20;
+    // Keep concurrency low — portal rate-limits (~429 Too Many Attempts) under burst load.
+    const CONCURRENCY = 4;
     for (let start = 2; start <= lastPage; start += CONCURRENCY) {
       const pages: number[] = [];
       for (let p = start; p < start + CONCURRENCY && p <= lastPage; p++) pages.push(p);
-      const results = await Promise.all(
-        pages.map((page) => this.api<unknown>('packages', { query: { page } }))
-      );
+      const results = await Promise.all(pages.map((page) => this.apiPageWithRetry('packages', page)));
+      let missing = 0;
       for (const res of results) {
-        if (!res) continue;
+        if (!res) {
+          missing++;
+          continue;
+        }
         out.push(...unwrapList(res));
       }
-      if (start === 2 || start % 80 === 2 || start + CONCURRENCY > lastPage) {
-        console.info(`[EsimCard] catalog fetched through page ${Math.min(start + CONCURRENCY - 1, lastPage)}/${lastPage} (rows=${out.length})`);
+      if (missing) {
+        console.warn(`[EsimCard] catalog batch starting page ${start}: ${missing} pages failed after retries`);
       }
+      if (start === 2 || start % 40 === 2 || start + CONCURRENCY > lastPage) {
+        console.info(
+          `[EsimCard] catalog fetched through page ${Math.min(start + CONCURRENCY - 1, lastPage)}/${lastPage} (rows=${out.length})`
+        );
+      }
+      // Small pause between batches to stay under rate limit
+      await new Promise((r) => setTimeout(r, 150));
     }
     return out;
   }
@@ -549,17 +575,33 @@ export class EsimCardProvider implements EsimProvider {
       }
     };
 
-    // Country endpoint first (usually local/US-heavy)
-    pushAll(await this.fetchPackagePages('packages/country', {}, 5));
+    // NOTE: packages/country returns country metadata, NOT packages — never mix into index.
+    // Prefer US packages from the live catalog cache when warm.
+    if (livePlansCache?.plans?.length) {
+      for (const plan of livePlansCache.plans) {
+        if (!plan.isUs) continue;
+        const id = plan.providerId;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        collected.push({
+          id,
+          package_type_id: id,
+          name: plan.name,
+          price: plan.priceCents / 100,
+          data_quantity: plan.dataMb < 0 ? 0 : plan.dataMb >= 1024 ? plan.dataMb / 1024 : plan.dataMb,
+          data_unit: plan.dataMb < 0 ? 'GB' : plan.dataMb >= 1024 ? 'GB' : 'MB',
+          unlimited: plan.dataMb < 0,
+          package_validity: plan.validityDays,
+          package_validity_unit: 'day',
+          scope: 'local',
+          coverage: [{ code: 'us', country_name: 'United States' }],
+        });
+      }
+    }
 
-    // Explicit US / local filters when available
-    pushAll(await this.fetchPackagePages('packages', { type: 'local', package_type: 'local' }, 3));
-    pushAll(await this.fetchPackagePages('packages', { country: 'US' }, 3));
-    pushAll(await this.fetchPackagePages('packages', { country_code: 'US' }, 2));
-
-    // A few general pages as safety net (capped — never expose full catalog)
+    pushAll(await this.fetchPackagePages('packages', { type: 'local', package_type: 'local' }, 5));
     if (collected.filter((p) => this.isUsPackage(p)).length < 8) {
-      pushAll(await this.fetchPackagePages('packages', {}, 6));
+      pushAll(await this.fetchPackagePages('packages', {}, 10));
     }
 
     return collected;
@@ -733,30 +775,45 @@ export class EsimCardProvider implements EsimProvider {
 
   /** Optional Popular US strip: 5/10/50/Unlimited resolved to real package_type_ids. */
   async listPopularWeebleTiers(): Promise<EsimPlan[]> {
+    // Warm catalog first so preferred package_type_ids can be matched without detail spam.
+    if (!livePlansCache?.plans?.length) {
+      try {
+        await this.listPlans();
+      } catch {
+        /* ignore */
+      }
+    }
+    const catalog = livePlansCache?.plans || [];
+
+    const fromPreferred = WEEBLE_TIER_DEFS.map((tier) => {
+      const hit = catalog.find((p) => p.providerId === tier.preferredPackageTypeId);
+      if (!hit) return null;
+      // Approximate wholesale from retail÷markup for sticky price helper
+      const markup = Number(process.env.PRICE_MARKUP || '2') || 2;
+      const approxWholesale = Math.round(hit.priceCents / markup);
+      return buildWeeblePlanFromResolved({
+        tier,
+        packageTypeId: hit.providerId,
+        wholesaleCents: approxWholesale,
+        validityDays: hit.validityDays,
+        liveDataMb: tier.targetDataMb < 0 ? -1 : hit.dataMb,
+      });
+    }).filter((p): p is EsimPlan => Boolean(p));
+
+    if (fromPreferred.length === WEEBLE_TIER_DEFS.length) {
+      console.info(
+        `[EsimCard] popular tiers from catalog: ${fromPreferred.map((p) => `${p.id}→${p.providerId}`).join(' | ')}`
+      );
+      return fromPreferred.map((p) => ({ ...p, features: [...p.features] }));
+    }
+
     try {
       const live = await this.resolveWeebleTiersFromLive();
       if (live?.length) return live.map((p) => ({ ...p, features: [...p.features] }));
     } catch (e) {
       console.warn('[EsimCard] popular tiers resolve failed', e);
     }
-    // Prefer matching preferred ids from full catalog cache before sticky retail
-    const catalog = livePlansCache?.plans || [];
-    const fromCatalog: EsimPlan[] = [];
-    for (const tier of WEEBLE_TIER_DEFS) {
-      const hit = catalog.find((p) => p.providerId === tier.preferredPackageTypeId);
-      if (hit) {
-        fromCatalog.push({
-          ...hit,
-          id: tier.id,
-          name: tier.name,
-          description: tier.description,
-          popular: tier.popular,
-          features: [...tier.features],
-          dataMb: tier.targetDataMb < 0 ? -1 : hit.dataMb,
-        });
-      }
-    }
-    if (fromCatalog.length) return fromCatalog;
+    if (fromPreferred.length) return fromPreferred.map((p) => ({ ...p, features: [...p.features] }));
     return listWeebleRetailPlans();
   }
 
@@ -804,14 +861,14 @@ export class EsimCardProvider implements EsimProvider {
 
       if (livePlansCache) {
         const hit = livePlansCache.plans.find(
-          (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^esimcard-/, '')
+          (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^(w-|esimcard-)/, '')
         );
         if (hit) return { ...hit, features: [...hit.features] };
       }
 
       if (!this.token) return tier ? getWeebleRetailPlan(tier.id) : null;
 
-      const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
+      const providerId = id.startsWith('w-') ? id.slice(2) : id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
       const detail = await this.api<Record<string, unknown> | { data?: Record<string, unknown> }>(
         `package/detail/${encodeURIComponent(providerId)}`
       );
@@ -886,7 +943,7 @@ export class EsimCardProvider implements EsimProvider {
         throw new Error('Live provider credentials are not configured');
       }
 
-      const packageTypeId = plan.providerId || plan.id.replace(/^esimcard-/, '');
+      const packageTypeId = plan.providerId || plan.id.replace(/^(w-|esimcard-)/, '');
       console.info(`[EsimCard] purchase plan=${plan.id} package_type_id=${packageTypeId}`);
       const purchased = await this.api<Record<string, unknown>>('package/purchase', {
         method: 'POST',
@@ -937,7 +994,7 @@ export class EsimCardProvider implements EsimProvider {
       }
 
       const spn = spnName();
-      const iccid = fields.iccid || `esimcard-${fields.id || Date.now()}`;
+      const iccid = fields.iccid || `weeble-${fields.id || Date.now()}`;
       let activationCode = fields.activationCode || '';
       let qrPayload = fields.qrPayload || '';
       if (!qrPayload) {
@@ -945,7 +1002,7 @@ export class EsimCardProvider implements EsimProvider {
           ? activationCode
           : activationCode
             ? `LPA:1$esimcard.com$${activationCode}`
-            : `LPA:1$${spn.toLowerCase().replace(/\s+/g, '')}.esimcard$${iccid}`;
+            : `LPA:1$${spn.toLowerCase().replace(/\s+/g, '')}.app$${iccid}`;
       }
       if (!activationCode) {
         activationCode = qrPayload.startsWith('LPA:') ? qrPayload : `WEEBLE-${iccid.slice(-8)}`;

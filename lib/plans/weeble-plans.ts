@@ -102,7 +102,7 @@ export function listWeebleRetailPlans(): EsimPlan[] {
 }
 
 export function getWeebleTierDef(id: string): WeebleTierDef | null {
-  const providerId = id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
+  const providerId = id.startsWith('w-') ? id.slice(2) : id.startsWith('esimcard-') ? id.slice('esimcard-'.length) : id;
   return (
     WEEBLE_TIER_DEFS.find(
       (t) =>
@@ -119,7 +119,7 @@ export function getWeebleRetailPlan(id: string): EsimPlan | null {
   const tier = getWeebleTierDef(id);
   if (!tier) {
     const found = WEEBLE_RETAIL_PLANS.find(
-      (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^esimcard-/, '')
+      (p) => p.id === id || p.providerId === id || p.providerId === id.replace(/^(w-|esimcard-)/, '')
     );
     return found ? { ...found, features: [...found.features] } : null;
   }
