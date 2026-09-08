@@ -1,23 +1,28 @@
-import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getAdRewardProvider } from '@/lib/ads';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
+import { jsonCors, optionsCors } from '@/lib/cors';
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+  return optionsCors(req);
+}
+
+export async function GET(req: NextRequest) {
   await ensureSeeded();
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession(req);
+  if (!session) return jsonCors({ error: 'Unauthorized' }, { status: 401 }, req);
   const ads = getAdRewardProvider();
   const status = await ads.canWatch(session.id);
   const history = await ads.getHistory(session.id);
-  return NextResponse.json({ ...status, dailyCap: ads.dailyCap, history });
+  return jsonCors({ ...status, dailyCap: ads.dailyCap, history }, undefined, req);
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   await ensureSeeded();
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession(req);
+  if (!session) return jsonCors({ error: 'Unauthorized' }, { status: 401 }, req);
   const ads = getAdRewardProvider();
   const result = await ads.grantReward(session.id);
-  return NextResponse.json(result, { status: result.success ? 200 : 400 });
+  return jsonCors(result, { status: result.success ? 200 : 400 }, req);
 }

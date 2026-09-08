@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createSession, destroySession, loginUser, registerUser } from '@/lib/auth';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
+import { jsonCors, optionsCors } from '@/lib/cors';
+
+export async function OPTIONS(req: NextRequest) {
+  return optionsCors(req);
+}
 
 export async function POST(req: NextRequest) {
   await ensureSeeded();
@@ -16,21 +21,31 @@ export async function POST(req: NextRequest) {
   try {
     if (mode === 'signout') {
       await destroySession();
-      return NextResponse.json({ ok: true });
+      return jsonCors({ ok: true }, undefined, req);
     }
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
+      return jsonCors({ error: 'Email and password required' }, { status: 400 }, req);
     }
     const user =
       mode === 'signup'
         ? await registerUser(email.toLowerCase().trim(), password, name)
         : await loginUser(email.toLowerCase().trim(), password);
-    await createSession(user);
-    return NextResponse.json({ ok: true, redirect: next || '/dashboard' });
+    const token = await createSession(user);
+    return jsonCors(
+      {
+        ok: true,
+        token,
+        user: { id: user.id, email: user.email, name: user.name },
+        redirect: next || '/dashboard',
+      },
+      undefined,
+      req
+    );
   } catch (e) {
-    return NextResponse.json(
+    return jsonCors(
       { error: e instanceof Error ? e.message : 'Auth failed' },
-      { status: 400 }
+      { status: 400 },
+      req
     );
   }
 }

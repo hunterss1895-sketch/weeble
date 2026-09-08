@@ -24,31 +24,16 @@ function cookieSecure() {
   return url.startsWith('https://');
 }
 
-export async function createSession(user: SessionUser) {
-  const token = await new SignJWT({ sub: user.id, email: user.email, name: user.name })
+/** Sign a JWT (same token used for cookie and Bearer). */
+export async function createToken(user: SessionUser): Promise<string> {
+  return new SignJWT({ sub: user.id, email: user.email, name: user.name })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')
     .sign(secret());
-  const jar = await cookies();
-  jar.set(COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: cookieSecure(),
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30,
-  });
 }
 
-export async function destroySession() {
-  const jar = await cookies();
-  jar.delete(COOKIE);
-}
-
-export async function getSession(): Promise<SessionUser | null> {
-  const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
-  if (!token) return null;
+export async function verifyToken(token: string): Promise<SessionUser | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
     return {
@@ -61,8 +46,48 @@ export async function getSession(): Promise<SessionUser | null> {
   }
 }
 
-export async function requireUser(): Promise<SessionUser> {
-  const user = await getSession();
+export async function createSession(user: SessionUser): Promise<string> {
+  const token = await createToken(user);
+  const jar = await cookies();
+  jar.set(COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: cookieSecure(),
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+  });
+  return token;
+}
+
+export async function destroySession() {
+  const jar = await cookies();
+  jar.delete(COOKIE);
+}
+
+/**
+ * Session from Authorization: Bearer <jwt> OR weeble_session cookie.
+ * Pass req when available (API routes) so Bearer works for mobile clients.
+ */
+export async function getSession(req?: Request): Promise<SessionUser | null> {
+  if (req) {
+    const auth = req.headers.get('authorization') || req.headers.get('Authorization');
+    if (auth?.toLowerCase().startsWith('bearer ')) {
+      const token = auth.slice(7).trim();
+      if (token) {
+        const user = await verifyToken(token);
+        if (user) return user;
+      }
+    }
+  }
+
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+export async function requireUser(req?: Request): Promise<SessionUser> {
+  const user = await getSession(req);
   if (!user) throw new Error('UNAUTHORIZED');
   return user;
 }
