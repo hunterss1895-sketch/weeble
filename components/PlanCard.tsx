@@ -9,58 +9,53 @@ export function PlanCard({ plan }: { plan: EsimPlan }) {
   const isCredit = !isUsGb && (/^citrus-/i.test(plan.id) || /credit/i.test(plan.name));
   const perGbMatch = plan.description.match(/from \$([0-9.]+)\/GB/i);
   const fromRate = perGbMatch ? `From $${perGbMatch[1]}/GB` : null;
-
   const bullets = (plan.features || []).slice(0, 4);
+  const blurb =
+    plan.description.split('.')[0]?.trim() ||
+    (isUsGb ? 'US mobile data credit' : plan.region);
 
   return (
-    <article
-      className={`flex h-full flex-col border border-white/10 bg-black p-6 sm:p-8 ${
-        plan.popular ? 'border-white/40' : ''
-      }`}
-    >
+    <article className="flex h-full flex-col rounded-2xl bg-zinc-900 p-7 sm:p-8">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
-          {plan.region}
-        </p>
+        <h3 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.7rem]">{title}</h3>
         {plan.popular && (
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70">
             Popular
           </span>
         )}
       </div>
+      <p className="mt-3 text-sm leading-relaxed text-white/50">{blurb}.</p>
 
-      <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
-        {title}
-      </h3>
+      <div className="mt-8">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">Price</p>
+        <p className="mt-2 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+          {price}
+          <span className="ml-1 text-base font-medium text-white/40">
+            {isUsGb || isCredit ? 'incl. setup' : ''}
+          </span>
+        </p>
+        <p className="mt-2 text-sm text-white/45">
+          {isCredit ? `${formatData(plan.dataMb)} est.` : formatData(plan.dataMb)}
+          {isUsGb && fromRate ? ` · ${fromRate}` : ''}
+        </p>
+      </div>
 
-      <p className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{price}</p>
-      <p className="mt-2 text-sm text-white/45">
-        {isUsGb
-          ? fromRate
-            ? `${fromRate} · incl. setup`
-            : 'Includes eSIM setup'
-          : isCredit
-            ? 'Credit pack · incl. setup'
-            : `${plan.validityDays}-day plan`}
-      </p>
-
-      <p className="mt-6 text-sm font-medium text-white/80">
-        {isCredit ? `${formatData(plan.dataMb)} est.` : formatData(plan.dataMb)}
-        {isUsGb ? ' data' : ''}
-      </p>
-
-      <ul className="mt-6 flex-1 space-y-2.5 border-t border-white/10 pt-6">
-        {bullets.map((f) => (
-          <li key={f} className="flex gap-2 text-sm text-white/55">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-white/50" />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-8 flex-1 border-t border-white/10 pt-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">
+          Key features
+        </p>
+        <ul className="mt-4 space-y-3">
+          {bullets.map((f) => (
+            <li key={f} className="text-sm text-white/80">
+              {f}
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <Link
         href={`/plans/${plan.id}`}
-        className="mt-8 inline-flex w-full items-center justify-center bg-white px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-black hover:bg-white/90 transition"
+        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-[13px] font-semibold text-black hover:bg-white/90 transition"
       >
         Order
       </Link>

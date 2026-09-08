@@ -12,14 +12,14 @@ export function Button({
 }) {
   const variants = {
     primary: 'bg-white text-black hover:bg-white/90 font-semibold',
-    secondary: 'bg-transparent text-white border border-white/25 hover:border-white/60',
+    secondary: 'bg-white/10 text-white hover:bg-white/15 border border-transparent',
     ghost: 'bg-transparent text-white/60 hover:text-white',
     danger: 'bg-red-600 text-white hover:bg-red-500',
   };
   const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3.5 text-[12px] uppercase tracking-[0.14em] font-semibold',
+    sm: 'px-3 py-1.5 text-sm rounded-lg',
+    md: 'px-4 py-2.5 text-sm rounded-lg',
+    lg: 'px-6 py-3 text-[13px] font-semibold rounded-xl',
   };
   return (
     <button
@@ -38,7 +38,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'w-full border border-white/15 bg-black px-3 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/40',
+        'w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/30',
         className
       )}
       {...props}
@@ -48,7 +48,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn('border border-white/10 bg-black p-6 sm:p-8', className)}>{children}</div>
+    <div className={cn('rounded-2xl bg-zinc-900 p-6 sm:p-8', className)}>{children}</div>
   );
 }
 
@@ -69,7 +69,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]',
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]',
         tones[tone]
       )}
     >

@@ -71,12 +71,12 @@ export function PlansBrowser({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border border-white/10 bg-black p-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl bg-zinc-900 p-4 sm:p-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row">
           <label className="flex flex-1 flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
             Country
             <select
-              className="border border-white/15 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white outline-none focus:border-white/40"
+              className="rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white outline-none focus:border-white/40"
               value={country}
               onChange={(e) => {
                 setCountry(e.target.value);
@@ -96,7 +96,7 @@ export function PlansBrowser({
             <input
               type="search"
               placeholder="Search countries or credit packs…"
-              className="border border-white/15 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white placeholder:text-white/30 outline-none focus:border-white/40"
+              className="rounded-xl border border-white/10 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white placeholder:text-white/30 outline-none focus:border-white/40"
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
@@ -118,7 +118,7 @@ export function PlansBrowser({
           No packs match. Try another country or clear search.
         </p>
       ) : (
-        <div className="grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {pageItems.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}

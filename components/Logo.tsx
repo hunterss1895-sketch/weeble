@@ -4,9 +4,9 @@ export function Logo({ className = '' }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={`inline-flex items-center font-semibold uppercase tracking-[0.18em] text-white ${className}`}
+      className={`inline-flex items-center text-[15px] font-semibold uppercase tracking-[0.22em] text-white ${className}`}
     >
-      <span className="text-sm sm:text-[15px]">Weeble</span>
+      Weeble
     </Link>
   );
 }

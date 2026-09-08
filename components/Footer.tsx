@@ -3,13 +3,12 @@ import { Logo } from './Logo';
 
 export function Footer() {
   return (
-    <footer className="mt-0 border-t border-white/10 bg-black">
+    <footer className="border-t border-white/10 bg-black">
       <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 md:grid-cols-4">
         <div className="md:col-span-1">
           <Logo />
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/45">
-            Instant eSIM data for the United States and 200+ destinations. Clear GB plans. Weeble
-            branding only.
+            Instant eSIM data for the United States and 200+ destinations. Clear GB plans.
           </p>
         </div>
         <div>
@@ -17,12 +16,12 @@ export function Footer() {
           <ul className="mt-4 space-y-3 text-sm text-white/65">
             <li>
               <Link href="/plans" className="hover:text-white transition">
-                US plans
+                Service Plans
               </Link>
             </li>
             <li>
-              <Link href="/plans" className="hover:text-white transition">
-                International
+              <Link href="/#coverage" className="hover:text-white transition">
+                Coverage
               </Link>
             </li>
             <li>

@@ -6,8 +6,7 @@
   --background: #000000;
   --foreground: #ffffff;
   --muted: #8b8b8b;
-  --border: #1a1a1a;
-  --card: #0a0a0a;
+  --card: #18181b;
 }
 
 html {
@@ -26,12 +25,18 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  /* Original cinematic dark field — not proprietary imagery */
   .hero-gradient {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(80, 80, 80, 0.35), transparent 55%),
-      linear-gradient(180deg, #0a0a0a 0%, #000 60%, #000 100%);
+      radial-gradient(ellipse 90% 60% at 70% 20%, rgba(55, 65, 90, 0.35), transparent 55%),
+      radial-gradient(ellipse 50% 40% at 20% 80%, rgba(40, 40, 50, 0.25), transparent 50%),
+      radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.06) 0 1px, transparent 2px),
+      radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0 1px, transparent 2px),
+      radial-gradient(circle at 75% 30%, rgba(255, 255, 255, 0.07) 0 1px, transparent 2px),
+      radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.04) 0 1px, transparent 2px),
+      linear-gradient(180deg, #050505 0%, #000 70%, #000 100%);
   }
-  .section-rule {
-    border-top: 1px solid #1a1a1a;
+  .section-pad {
+    @apply px-5 py-20 sm:px-8 sm:py-28;
   }
 }
