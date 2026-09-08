@@ -95,14 +95,16 @@ export async function fetchMe() {
 }
 
 export async function fetchPlans(country = 'US') {
-  return request<{ ok: boolean; plans: Plan[] }>(
+  const data = await request<{ ok: boolean; plans?: Plan[] | null }>(
     `/api/plans?country=${encodeURIComponent(country)}`,
     { auth: false }
   );
+  return { ...data, plans: Array.isArray(data?.plans) ? data.plans : [] };
 }
 
 export async function fetchDevices() {
-  return request<{ ok: boolean; devices: Device[] }>('/api/devices');
+  const data = await request<{ ok: boolean; devices?: Device[] | null }>('/api/devices');
+  return { ...data, devices: Array.isArray(data?.devices) ? data.devices : [] };
 }
 
 export async function purchasePlan(planId: string) {

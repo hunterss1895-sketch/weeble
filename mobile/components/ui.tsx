@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { colors } from '@/lib/theme';
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
@@ -16,7 +18,17 @@ export function Screen({ children, style }: { children: React.ReactNode; style?:
 }
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const content = <View style={styles.cardInner}>{children}</View>;
+  if (Platform.OS === 'web') {
+    return <View style={[styles.card, styles.cardFallback, style]}>{content}</View>;
+  }
+  return (
+    <View style={[styles.card, style]}>
+      <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
+      {content}
+    </View>
+  );
 }
 
 export function Title({ children }: { children: React.ReactNode }) {
@@ -80,8 +92,8 @@ export function Badge({ label, tone = 'default' }: { label: string; tone?: 'defa
   const c =
     tone === 'green' ? colors.success : tone === 'amber' ? colors.amber : colors.muted;
   return (
-    <View style={[styles.badge, { borderColor: c }]}>
-      <Text style={{ color: c, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' }}>
+    <View style={[styles.badge, { borderColor: c, backgroundColor: `${c}18` }]}>
+      <Text style={{ color: c, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 }}>
         {label}
       </Text>
     </View>
@@ -89,35 +101,53 @@ export function Badge({ label, tone = 'default' }: { label: string; tone?: 'defa
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 20, paddingTop: 12 },
+  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 20, paddingTop: 8 },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.glass,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: '600', letterSpacing: -0.5 },
-  subtitle: { color: colors.muted, fontSize: 15, marginTop: 6, lineHeight: 22 },
-  muted: { color: colors.muted, fontSize: 13 },
+  cardFallback: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  cardOverlay: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  cardInner: {
+    padding: 14,
+  },
+  title: { color: colors.text, fontSize: 26, fontWeight: '600', letterSpacing: -0.6 },
+  subtitle: { color: colors.muted, fontSize: 14, marginTop: 4, lineHeight: 20 },
+  muted: { color: colors.muted, fontSize: 13, lineHeight: 18 },
   btn: {
     borderRadius: 999,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 13,
+    paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnGhost: { borderWidth: 1, borderColor: colors.borderLight },
-  btnText: { fontSize: 15, fontWeight: '600' },
-  input: {
-    backgroundColor: colors.cardAlt,
+  btnGhost: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  btnText: { fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
   },
   badge: {
     borderWidth: 1,

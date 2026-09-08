@@ -38,10 +38,25 @@ export default function RootLayout() {
       <AuthProvider>
         <StatusBar style="light" />
         <AuthGate>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          >
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="plan/[id]" options={{ headerShown: true, headerTitle: 'Plan', headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }} />
+            <Stack.Screen
+              name="plan/[id]"
+              options={{
+                headerShown: true,
+                headerTitle: 'Plan',
+                headerStyle: { backgroundColor: colors.bgElevated },
+                headerTintColor: colors.text,
+                headerShadowVisible: false,
+                headerTitleStyle: { fontWeight: '600', fontSize: 16 },
+              }}
+            />
           </Stack>
         </AuthGate>
       </AuthProvider>

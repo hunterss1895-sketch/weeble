@@ -16,9 +16,10 @@ export default function PlanDetailScreen() {
     (async () => {
       try {
         const res = await fetchPlans('US');
+        const plans = Array.isArray(res?.plans) ? res.plans : [];
         const found =
-          res.plans.find((p) => p.id === id) ||
-          res.plans.find((p) => p.id === decodeURIComponent(id || ''));
+          plans.find((p) => p.id === id) ||
+          plans.find((p) => p.id === decodeURIComponent(id || ''));
         setPlan(found || null);
       } catch (e) {
         Alert.alert('Error', e instanceof Error ? e.message : 'Failed to load plan');
@@ -65,20 +66,20 @@ export default function PlanDetailScreen() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
         <Title>{plan.name}</Title>
         <Subtitle>{plan.description}</Subtitle>
-        <View style={{ height: 20 }} />
+        <View style={{ height: 16 }} />
         <Card>
           <Text style={styles.price}>{formatPrice(plan.priceCents, plan.currency)}</Text>
           <Text style={styles.meta}>
             {formatData(plan.dataMb)} · {plan.validityDays} days · {plan.region}
           </Text>
-          <View style={{ height: 16 }} />
+          <View style={{ height: 12 }} />
           {(plan.features || []).map((f) => (
             <Text key={f} style={styles.feat}>
               · {f}
             </Text>
           ))}
         </Card>
-        <View style={{ height: 24 }} />
+        <View style={{ height: 20 }} />
         <Button title="Purchase eSIM" onPress={onPurchase} loading={buying} />
         <View style={{ height: 12 }} />
         <Muted>Instant QR after purchase. Same Weeble account as the web app.</Muted>
@@ -88,7 +89,7 @@ export default function PlanDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  price: { color: colors.text, fontSize: 36, fontWeight: '600', letterSpacing: -1 },
-  meta: { color: colors.muted, fontSize: 14, marginTop: 6 },
-  feat: { color: colors.text, fontSize: 14, marginTop: 6 },
+  price: { color: colors.text, fontSize: 34, fontWeight: '600', letterSpacing: -1 },
+  meta: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  feat: { color: colors.text, fontSize: 14, marginTop: 5 },
 });

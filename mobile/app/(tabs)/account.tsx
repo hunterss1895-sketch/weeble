@@ -24,18 +24,20 @@ export default function AccountScreen() {
     <Screen>
       <Title>Account</Title>
       <Subtitle>Weeble profile and session.</Subtitle>
-      <View style={{ height: 20 }} />
+      <View style={{ height: 16 }} />
       <Card>
         <Text style={styles.label}>Name</Text>
         <Text style={styles.value}>{user?.name || '—'}</Text>
         <Text style={styles.label}>Email</Text>
-        <Text style={styles.value}>{user?.email}</Text>
+        <Text style={styles.value}>{user?.email || '—'}</Text>
         <Text style={styles.label}>User ID</Text>
-        <Text style={[styles.value, { fontFamily: 'monospace', fontSize: 12 }]}>{user?.id}</Text>
+        <Text style={[styles.value, { fontFamily: 'monospace', fontSize: 12 }]}>
+          {user?.id || '—'}
+        </Text>
         <Text style={styles.label}>API</Text>
         <Muted>{API_BASE_URL}</Muted>
       </Card>
-      <View style={{ height: 24 }} />
+      <View style={{ height: 20 }} />
       <Button title="Log out" onPress={onLogout} loading={loading} variant="ghost" />
     </Screen>
   );
@@ -44,11 +46,12 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   label: {
     color: colors.muted2,
-    fontSize: 11,
+    fontSize: 10,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 12,
-    marginBottom: 4,
+    letterSpacing: 1.2,
+    marginTop: 10,
+    marginBottom: 3,
+    fontWeight: '600',
   },
-  value: { color: colors.text, fontSize: 16 },
+  value: { color: colors.text, fontSize: 15, letterSpacing: -0.2 },
 });
