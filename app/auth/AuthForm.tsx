@@ -35,15 +35,15 @@ export function AuthForm({ next }: { next: string }) {
   }
 
   return (
-    <Card className="border-ink-800">
-      <div className="mb-5 flex rounded-md border border-ink-800 bg-black p-1">
+    <Card className="border-white/15">
+      <div className="mb-6 flex border border-white/15 p-1">
         {(['signin', 'signup'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`flex-1 rounded-md py-2.5 text-sm font-medium transition ${
-              mode === m ? 'bg-white text-black' : 'text-ink-500 hover:text-white'
+            className={`flex-1 py-2.5 text-[12px] font-semibold uppercase tracking-[0.12em] transition ${
+              mode === m ? 'bg-white text-black' : 'text-white/45 hover:text-white'
             }`}
           >
             {m === 'signin' ? 'Sign in' : 'Sign up'}
@@ -59,15 +59,27 @@ export function AuthForm({ next }: { next: string }) {
         )}
         <div>
           <Label>Email</Label>
-          <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
+          <Input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@email.com"
+          />
         </div>
         <div>
           <Label>Password</Label>
-          <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            type="password"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" size="lg" disabled={loading}>
-          {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create Weeble account'}
+          {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
         </Button>
       </form>
     </Card>

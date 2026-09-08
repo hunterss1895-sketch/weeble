@@ -35,51 +35,73 @@ export default async function PlansPage() {
     if (!usPlans.length) usPlans = plans.filter((p) => p.popular).slice(0, 4);
   }
 
-  // International / searchable catalog — exclude US GB tiers already shown above
   const usIds = new Set(usPlans.map((p) => p.id));
   const catalogPlans = plans.filter((p) => !usIds.has(p.id));
 
   return (
-    <div className="space-y-12">
-      <div className="mx-auto max-w-3xl text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-500">Weeble plans</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          US data plans
-        </h1>
-        <p className="mt-4 text-base text-ink-400">
-          Full United States lineup{rateNote ? ` — ${rateNote}` : ''}. Coverage on T-Mobile, AT&amp;T,
-          and Verizon. International destinations below.
-        </p>
-      </div>
+    <div>
+      <section className="hero-gradient px-5 pb-16 pt-20 sm:px-8 sm:pb-20 sm:pt-28">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/45">
+            Weeble plans
+          </p>
+          <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-6xl lg:text-7xl">
+            US data plans
+          </h1>
+          <p className="mt-6 max-w-xl text-base text-white/50 sm:text-lg">
+            Full United States lineup{rateNote ? ` — ${rateNote}` : ''}. Coverage on T-Mobile,
+            AT&amp;T, and Verizon. International destinations below.
+          </p>
+        </div>
+      </section>
 
       {usPlans.length > 0 && (
-        <section className="space-y-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-ink-500">United States</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">All US tiers</h2>
-            <p className="mt-1 text-sm text-ink-500">
-              1 GB · 3 GB · 5 GB · 10 GB · 20 GB · 50 GB · 100 GB · Unlimited
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {usPlans.map((p) => (
-              <PlanCard key={`us-${p.id}`} plan={p} />
-            ))}
+        <section className="section-rule px-5 py-16 sm:px-8 sm:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
+                  United States
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                  All US tiers
+                </h2>
+              </div>
+              <p className="text-sm text-white/40">
+                1 · 3 · 5 · 10 · 20 · 50 · 100 GB · Unlimited
+              </p>
+            </div>
+            <div className="mt-12 grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-4">
+              {usPlans.map((p) => (
+                <PlanCard key={`us-${p.id}`} plan={p} />
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      <section className="space-y-5">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-ink-500">International</p>
-          <h2 className="mt-1 text-xl font-semibold text-white">
-            More countries{catalogPlans.length ? ` · ${catalogPlans.length.toLocaleString()} packs` : ''}
-          </h2>
-          <p className="mt-1 text-sm text-ink-500">
-            Searchable credit packs. Defaults to United States filter — switch country to browse.
-          </p>
+      <section className="section-rule px-5 py-16 sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-7xl space-y-10">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
+              International
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              More countries
+              {catalogPlans.length ? (
+                <span className="text-white/35"> · {catalogPlans.length.toLocaleString()}</span>
+              ) : null}
+            </h2>
+            <p className="mt-3 max-w-xl text-sm text-white/45">
+              Searchable credit packs for destinations worldwide.
+            </p>
+          </div>
+          <PlansBrowser
+            plans={catalogPlans.length ? catalogPlans : plans}
+            countries={countries}
+            defaultCountry="ALL"
+          />
         </div>
-        <PlansBrowser plans={catalogPlans.length ? catalogPlans : plans} countries={countries} defaultCountry="ALL" />
       </section>
     </div>
   );

@@ -30,23 +30,23 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Data remaining</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/45">Data remaining</p>
           <p className="mt-2 text-2xl font-semibold text-white">{formatData(usage.dataRemainingMb)}</p>
-          <p className="text-xs text-ink-600">of {formatData(usage.dataTotalMb)} total</p>
+          <p className="text-xs text-white/40">of {formatData(usage.dataTotalMb)} total</p>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Active plans</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/45">Active plans</p>
           <p className="mt-2 text-2xl font-semibold text-white">{usage.activePlans}</p>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Devices</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/45">Devices</p>
           <p className="mt-2 text-2xl font-semibold text-white">{devices}</p>
-          <Link href="/dashboard/devices" className="text-xs font-medium text-ink-400 hover:text-white">Manage →</Link>
+          <Link href="/dashboard/devices" className="text-xs font-medium text-white/55 hover:text-white">Manage →</Link>
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Earned from ads</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-white/45">Earned from ads</p>
           <p className="mt-2 text-2xl font-semibold text-white">{formatData(adMb._sum.dataMb || 0)}</p>
-          <p className="text-xs text-ink-600">{adCount} rewards</p>
+          <p className="text-xs text-white/40">{adCount} rewards</p>
         </Card>
       </div>
 
@@ -54,22 +54,22 @@ export default async function DashboardPage() {
         <Card>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-white">Recent purchases</h2>
-            <Link href="/plans" className="text-sm font-medium text-ink-400 hover:text-white">Top up</Link>
+            <Link href="/plans" className="text-sm font-medium text-white/55 hover:text-white">Top up</Link>
           </div>
           {purchases.length === 0 ? (
-            <p className="text-sm text-ink-500">
+            <p className="text-sm text-white/45">
               No plans yet.{' '}
-              <Link href="/plans" className="font-medium text-ink-300 hover:text-white">Browse credit packs</Link>
+              <Link href="/plans" className="font-medium text-white/70 hover:text-white">Browse US plans</Link>
             </p>
           ) : (
             <ul className="space-y-3">
               {purchases.map((p) => (
-                <li key={p.id} className="flex items-center justify-between rounded-md border border-ink-800 bg-black px-4 py-3 text-sm">
+                <li key={p.id} className="flex items-center justify-between border border-white/15 bg-black px-4 py-3 text-sm">
                   <div>
-                    <p className="font-medium text-ink-100">{p.plan.name}</p>
-                    <p className="text-xs text-ink-600">{formatData(p.dataRemainingMb)} left · {p.status}</p>
+                    <p className="font-medium text-white">{p.plan.name}</p>
+                    <p className="text-xs text-white/40">{formatData(p.dataRemainingMb)} left · {p.status}</p>
                   </div>
-                  <span className="font-medium text-ink-300">{formatPrice(p.plan.priceCents)}</span>
+                  <span className="font-medium text-white/70">{formatPrice(p.plan.priceCents)}</span>
                 </li>
               ))}
             </ul>
@@ -78,13 +78,13 @@ export default async function DashboardPage() {
         <Card>
           <h2 className="mb-3 text-base font-semibold text-white">Quick actions</h2>
           <div className="grid gap-2">
-            <Link href="/plans" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
-              Buy data credit
+            <Link href="/plans" className="border border-white/15 bg-black px-4 py-3 text-sm font-medium text-white/70 hover:border-white/40 hover:text-white transition">
+              Order a plan
             </Link>
-            <Link href="/dashboard/earn" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
+            <Link href="/dashboard/earn" className="border border-white/15 bg-black px-4 py-3 text-sm font-medium text-white/70 hover:border-white/40 hover:text-white transition">
               Watch ads for free data
             </Link>
-            <Link href="/dashboard/devices" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
+            <Link href="/dashboard/devices" className="border border-white/15 bg-black px-4 py-3 text-sm font-medium text-white/70 hover:border-white/40 hover:text-white transition">
               Install eSIM / view QR
             </Link>
           </div>

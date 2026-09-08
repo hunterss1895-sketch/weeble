@@ -71,12 +71,12 @@ export function PlansBrowser({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-lg border border-ink-800 bg-ink-950 p-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border border-white/10 bg-black p-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-          <label className="flex flex-1 flex-col gap-1.5 text-sm text-ink-400">
+          <label className="flex flex-1 flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
             Country
             <select
-              className="rounded-md border border-ink-800 bg-black px-3 py-2.5 text-sm text-ink-50 outline-none focus:border-ink-500"
+              className="border border-white/15 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white outline-none focus:border-white/40"
               value={country}
               onChange={(e) => {
                 setCountry(e.target.value);
@@ -91,12 +91,12 @@ export function PlansBrowser({
               ))}
             </select>
           </label>
-          <label className="flex flex-[2] flex-col gap-1.5 text-sm text-ink-400">
+          <label className="flex flex-[2] flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
             Search
             <input
               type="search"
               placeholder="Search countries or credit packs…"
-              className="rounded-md border border-ink-800 bg-black px-3 py-2.5 text-sm text-ink-50 placeholder:text-ink-600 outline-none focus:border-ink-500"
+              className="border border-white/15 bg-black px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-white placeholder:text-white/30 outline-none focus:border-white/40"
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
@@ -105,8 +105,8 @@ export function PlansBrowser({
             />
           </label>
         </div>
-        <p className="text-sm text-ink-600">
-          <span className="font-medium text-ink-300">{filtered.length.toLocaleString()}</span> packs
+        <p className="text-sm text-white/40">
+          <span className="font-medium text-white/80">{filtered.length.toLocaleString()}</span> packs
           {filtered.length !== plans.length ? (
             <span> of {plans.length.toLocaleString()}</span>
           ) : null}
@@ -114,11 +114,11 @@ export function PlansBrowser({
       </div>
 
       {pageItems.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-ink-800 bg-ink-950 p-10 text-center text-ink-500">
+        <p className="border border-dashed border-white/15 bg-black p-10 text-center text-white/40">
           No packs match. Try another country or clear search.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-px bg-white/10 sm:grid-cols-2 xl:grid-cols-3">
           {pageItems.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
@@ -131,18 +131,18 @@ export function PlansBrowser({
             type="button"
             disabled={safePage <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-md border border-ink-800 px-4 py-2 text-sm font-medium text-ink-300 disabled:opacity-40 hover:border-ink-600"
+            className="rounded-md border border-ink-800 px-4 py-2 text-sm font-medium text-white/80 disabled:opacity-40 hover:border-ink-600"
           >
             Previous
           </button>
-          <span className="text-sm text-ink-500">
-            Page <span className="text-ink-200">{safePage}</span> / {totalPages}
+          <span className="text-sm text-white/40">
+            Page <span className="text-white">{safePage}</span> / {totalPages}
           </span>
           <button
             type="button"
             disabled={safePage >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="rounded-md border border-ink-800 px-4 py-2 text-sm font-medium text-ink-300 disabled:opacity-40 hover:border-ink-600"
+            className="rounded-md border border-ink-800 px-4 py-2 text-sm font-medium text-white/80 disabled:opacity-40 hover:border-ink-600"
           >
             Next
           </button>

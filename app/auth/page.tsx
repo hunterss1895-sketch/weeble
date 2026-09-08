@@ -12,15 +12,19 @@ export default async function AuthPage({
   if (session) redirect(next || '/dashboard');
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="mb-8 text-center">
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-500">Account</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Welcome to Weeble</h1>
-        <p className="mt-3 text-sm text-ink-500">
-          Sign in or create your Weeble account to buy data credit and manage your eSIM.
+    <div className="px-5 py-20 sm:px-8 sm:py-28">
+      <div className="mx-auto max-w-md">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">Account</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+          Welcome to Weeble
+        </h1>
+        <p className="mt-4 text-sm leading-relaxed text-white/45">
+          Sign in or create your account to order data plans and manage your eSIM.
         </p>
+        <div className="mt-10">
+          <AuthForm next={next || '/dashboard'} />
+        </div>
       </div>
-      <AuthForm next={next || '/dashboard'} />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Badge, Card } from './ui';
 import { formatData, formatPrice } from '@/lib/utils';
 import type { EsimPlan } from '@/lib/providers';
 
@@ -9,51 +8,62 @@ export function PlanCard({ plan }: { plan: EsimPlan }) {
   const isUsGb = /^citrus-US-(\d+gb|unlimited)$/i.test(plan.id);
   const isCredit = !isUsGb && (/^citrus-/i.test(plan.id) || /credit/i.test(plan.name));
   const perGbMatch = plan.description.match(/from \$([0-9.]+)\/GB/i);
-  const fromRate = perGbMatch ? `from $${perGbMatch[1]}/GB` : null;
+  const fromRate = perGbMatch ? `From $${perGbMatch[1]}/GB` : null;
+
+  const bullets = (plan.features || []).slice(0, 4);
 
   return (
-    <Card
-      className={`relative flex h-full flex-col transition hover:border-ink-600 ${
-        plan.popular ? 'border-ink-500' : ''
+    <article
+      className={`flex h-full flex-col border border-white/10 bg-black p-6 sm:p-8 ${
+        plan.popular ? 'border-white/40' : ''
       }`}
     >
-      {plan.popular && (
-        <div className="absolute right-4 top-4">
-          <Badge tone="slate">Popular</Badge>
-        </div>
-      )}
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-500">{plan.region}</p>
-      <h3 className="mt-3 text-lg font-semibold tracking-tight text-ink-50 line-clamp-2">{title}</h3>
-      <p className="mt-2 line-clamp-2 flex-1 text-sm text-ink-500">{plan.description}</p>
-
-      <div className="mt-6">
-        <p className="text-3xl font-semibold tracking-tight text-ink-50 sm:text-4xl">
-          {isCredit ? formatData(plan.dataMb) + ' est.' : formatData(plan.dataMb)}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+          {plan.region}
         </p>
-        <p className="mt-1 text-sm text-ink-600">
-          {isUsGb
-            ? fromRate
-              ? `${fromRate} · T-Mobile, AT&T, Verizon`
-              : 'T-Mobile, AT&T, Verizon'
-            : isCredit
-              ? 'Pay-as-you-go credit'
-              : `${plan.validityDays}-day plan`}
-        </p>
+        {plan.popular && (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+            Popular
+          </span>
+        )}
       </div>
 
-      <div className="mt-6 flex items-end gap-1">
-        <span className="text-2xl font-semibold text-white sm:text-3xl">{price}</span>
-        <span className="mb-1 text-sm font-medium text-ink-600">
-          {isUsGb || isCredit ? 'incl. setup' : `/ ${plan.validityDays} days`}
-        </span>
-      </div>
+      <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
+        {title}
+      </h3>
+
+      <p className="mt-6 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{price}</p>
+      <p className="mt-2 text-sm text-white/45">
+        {isUsGb
+          ? fromRate
+            ? `${fromRate} · incl. setup`
+            : 'Includes eSIM setup'
+          : isCredit
+            ? 'Credit pack · incl. setup'
+            : `${plan.validityDays}-day plan`}
+      </p>
+
+      <p className="mt-6 text-sm font-medium text-white/80">
+        {isCredit ? `${formatData(plan.dataMb)} est.` : formatData(plan.dataMb)}
+        {isUsGb ? ' data' : ''}
+      </p>
+
+      <ul className="mt-6 flex-1 space-y-2.5 border-t border-white/10 pt-6">
+        {bullets.map((f) => (
+          <li key={f} className="flex gap-2 text-sm text-white/55">
+            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-white/50" />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
 
       <Link
         href={`/plans/${plan.id}`}
-        className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-ink-200"
+        className="mt-8 inline-flex w-full items-center justify-center bg-white px-4 py-3.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-black hover:bg-white/90 transition"
       >
-        {isUsGb ? 'Choose plan' : isCredit ? 'Choose credit' : 'Choose plan'}
+        Order
       </Link>
-    </Card>
+    </article>
   );
 }

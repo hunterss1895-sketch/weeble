@@ -4,21 +4,34 @@
 
 :root {
   --background: #000000;
-  --foreground: #fafafa;
+  --foreground: #ffffff;
+  --muted: #8b8b8b;
+  --border: #1a1a1a;
   --card: #0a0a0a;
-  --muted: #a1a1aa;
-  --border: #27272a;
-  --accent: #fafafa;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background: #000;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .hero-gradient {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(80, 80, 80, 0.35), transparent 55%),
+      linear-gradient(180deg, #0a0a0a 0%, #000 60%, #000 100%);
+  }
+  .section-rule {
+    border-top: 1px solid #1a1a1a;
   }
 }

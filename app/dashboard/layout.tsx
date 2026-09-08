@@ -8,17 +8,23 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!session) redirect('/auth?next=/dashboard');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-ink-500">Dashboard</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Your Weeble</h1>
-          <p className="text-sm text-ink-500">Signed in as {session.name || session.email}</p>
+    <div className="px-5 py-12 sm:px-8 sm:py-16">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <div className="flex flex-col gap-4 border-b border-white/10 pb-8 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/40">
+              Dashboard
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              Your Weeble
+            </h1>
+            <p className="mt-2 text-sm text-white/45">Signed in as {session.name || session.email}</p>
+          </div>
+          <SignOutButton />
         </div>
-        <SignOutButton />
+        <DashboardNav />
+        {children}
       </div>
-      <DashboardNav />
-      {children}
     </div>
   );
 }
