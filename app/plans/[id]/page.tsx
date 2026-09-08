@@ -17,7 +17,8 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
   if (!plan) notFound();
   const session = await getSession();
   const price = formatPrice(plan.priceCents, plan.currency).replace('.00', '');
-  const isCredit = /^citrus-/i.test(plan.id) || /credit/i.test(plan.name);
+  const isUsGb = /^citrus-US-(\d+gb|unlimited)$/i.test(plan.id);
+  const isCredit = !isUsGb && (/^citrus-/i.test(plan.id) || /credit/i.test(plan.name));
 
   return (
     <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-5">
@@ -44,16 +45,23 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ id:
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-500">
           {isCredit ? 'Est. data' : 'Data'}
         </p>
-        <p className="mt-2 text-3xl font-semibold text-white">{formatData(plan.dataMb)}{isCredit ? ' est.' : ''}</p>
+        <p className="mt-2 text-3xl font-semibold text-white">
+          {formatData(plan.dataMb)}
+          {isCredit ? ' est.' : ''}
+          {isUsGb && plan.dataMb < 0 ? '' : ''}
+        </p>
+        {isUsGb && (
+          <p className="mt-2 text-sm text-ink-500">Coverage: T-Mobile, AT&amp;T, Verizon</p>
+        )}
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.18em] text-ink-500">
-          {isCredit ? 'Credit life' : 'Validity'}
+          {isUsGb || isCredit ? 'Credit life' : 'Validity'}
         </p>
         <p className="mt-2 text-lg font-medium text-ink-100">
-          {isCredit ? 'Until credit runs out' : `${plan.validityDays} days`}
+          {isUsGb || isCredit ? 'Until credit runs out' : `${plan.validityDays} days`}
         </p>
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.18em] text-ink-500">Price</p>
         <p className="mt-2 text-3xl font-semibold text-white">{price}</p>
-        {isCredit && (
+        {(isUsGb || isCredit) && (
           <p className="mt-1 text-xs text-ink-600">Includes eSIM setup + data credit</p>
         )}
         <div className="mt-8">

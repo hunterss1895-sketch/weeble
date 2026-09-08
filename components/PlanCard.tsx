@@ -6,7 +6,11 @@ import type { EsimPlan } from '@/lib/providers';
 export function PlanCard({ plan }: { plan: EsimPlan }) {
   const price = formatPrice(plan.priceCents, plan.currency).replace('.00', '');
   const title = plan.name.replace(/^Weeble\s+/i, '');
-  const isCredit = /^citrus-/i.test(plan.id) || /credit/i.test(plan.name);
+  const isUsGb = /^citrus-US-(\d+gb|unlimited)$/i.test(plan.id);
+  const isCredit = !isUsGb && (/^citrus-/i.test(plan.id) || /credit/i.test(plan.name));
+  const perGbMatch = plan.description.match(/from \$([0-9.]+)\/GB/i);
+  const fromRate = perGbMatch ? `from $${perGbMatch[1]}/GB` : null;
+
   return (
     <Card
       className={`relative flex h-full flex-col transition hover:border-ink-600 ${
@@ -27,14 +31,20 @@ export function PlanCard({ plan }: { plan: EsimPlan }) {
           {isCredit ? formatData(plan.dataMb) + ' est.' : formatData(plan.dataMb)}
         </p>
         <p className="mt-1 text-sm text-ink-600">
-          {isCredit ? 'Pay-as-you-go credit' : `${plan.validityDays}-day plan`}
+          {isUsGb
+            ? fromRate
+              ? `${fromRate} · T-Mobile, AT&T, Verizon`
+              : 'T-Mobile, AT&T, Verizon'
+            : isCredit
+              ? 'Pay-as-you-go credit'
+              : `${plan.validityDays}-day plan`}
         </p>
       </div>
 
       <div className="mt-6 flex items-end gap-1">
         <span className="text-2xl font-semibold text-white sm:text-3xl">{price}</span>
         <span className="mb-1 text-sm font-medium text-ink-600">
-          {isCredit ? 'incl. setup' : `/ ${plan.validityDays} days`}
+          {isUsGb || isCredit ? 'incl. setup' : `/ ${plan.validityDays} days`}
         </span>
       </div>
 
@@ -42,7 +52,7 @@ export function PlanCard({ plan }: { plan: EsimPlan }) {
         href={`/plans/${plan.id}`}
         className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-ink-200"
       >
-        {isCredit ? 'Choose credit' : 'Choose plan'}
+        {isUsGb ? 'Choose plan' : isCredit ? 'Choose credit' : 'Choose plan'}
       </Link>
     </Card>
   );

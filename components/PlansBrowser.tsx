@@ -9,11 +9,13 @@ const PAGE_SIZE = 24;
 export function PlansBrowser({
   plans,
   countries,
+  defaultCountry = 'US',
 }: {
   plans: EsimPlan[];
   countries: Array<{ code: string; name: string }>;
+  defaultCountry?: string;
 }) {
-  const [country, setCountry] = useState<string>('US');
+  const [country, setCountry] = useState<string>(defaultCountry);
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
 

@@ -9,14 +9,20 @@ export const revalidate = 0;
 export default async function HomePage() {
   await ensureSeeded();
   const provider = getEsimProvider();
-  let popular =
+  let usPlans =
     provider instanceof CitrusProvider
       ? await provider.listPopularWeebleTiers().catch(() => [])
-      : (await provider.listPlans()).filter((p) => p.popular).slice(0, 4);
+      : (await provider.listPlans()).filter((p) => p.isUs || p.popular).slice(0, 8);
 
-  if (!popular.length) {
+  if (!usPlans.length) {
     const all = await provider.listPlans();
-    popular = all.filter((p) => p.isUs || p.popular).slice(0, 4);
+    usPlans = all.filter((p) => p.isUs || p.popular).slice(0, 8);
+  }
+
+  let rateNote = '';
+  if (provider instanceof CitrusProvider) {
+    const perGb = await provider.getUsCheapestPerGb().catch(() => null);
+    if (perGb) rateNote = `from $${perGb.toFixed(2)}/GB`;
   }
 
   return (
@@ -24,20 +30,21 @@ export default async function HomePage() {
       <section className="rounded-lg border border-ink-800 bg-ink-950 px-6 py-16 sm:px-12 sm:py-20">
         <div className="mx-auto max-w-3xl text-center">
           <p className="mb-4 inline-flex rounded-md border border-ink-700 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-ink-400">
-            Pay-as-you-go eSIM
+            US data eSIM
           </p>
           <h1 className="text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Data credit. Anywhere.
+            US data plans. Clear GB. Instant eSIM.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base text-ink-400 sm:text-lg">
-            Pick a country, fund your eSIM with $10–$100 of data credit, install with a QR. US first — 200+ destinations.
+            1 GB to Unlimited for the United States{rateNote ? ` — ${rateNote}` : ''}. Coverage on
+            T-Mobile, AT&amp;T, and Verizon. International destinations available too.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/plans"
               className="rounded-md bg-white px-7 py-3 text-sm font-semibold text-black hover:bg-ink-200 transition"
             >
-              Browse countries
+              See US plans
             </Link>
             <Link
               href="/auth"
@@ -53,14 +60,15 @@ export default async function HomePage() {
         <div className="mb-8 text-center">
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-500">United States</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Credit packs
+            Data plans
           </h2>
           <p className="mt-3 text-ink-500">
-            Retail price includes eSIM setup. Use credit until it runs out.
+            Full lineup — priced from live wholesale rates{rateNote ? ` (${rateNote})` : ''}. Includes
+            eSIM setup. Networks: T-Mobile, AT&amp;T, Verizon.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {popular.map((p) => (
+          {usPlans.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
         </div>
@@ -69,7 +77,7 @@ export default async function HomePage() {
             href="/plans"
             className="inline-flex rounded-md border border-ink-700 px-5 py-2.5 text-sm font-medium text-ink-300 hover:border-ink-500 hover:text-white transition"
           >
-            All countries →
+            All plans &amp; countries →
           </Link>
         </div>
       </section>
@@ -80,9 +88,21 @@ export default async function HomePage() {
         </h2>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
-            { n: '01', t: 'Choose credit', d: 'Pick a country and a $10 / $25 / $50 / $100 data credit pack.' },
-            { n: '02', t: 'Get your eSIM', d: 'We provision instantly and show a QR plus install link in your dashboard.' },
-            { n: '03', t: 'Stay connected', d: 'Data draws down from your credit at local rates until it runs out.' },
+            {
+              n: '01',
+              t: 'Pick a GB plan',
+              d: 'Choose 1–100 GB or Unlimited for the US. International credit packs stay in the catalog.',
+            },
+            {
+              n: '02',
+              t: 'Get your eSIM',
+              d: 'We provision instantly and show a QR plus install link in your dashboard.',
+            },
+            {
+              n: '03',
+              t: 'Stay connected',
+              d: 'Data draws down from your funded credit at local rates until it runs out.',
+            },
           ].map((f) => (
             <div key={f.n} className="rounded-lg border border-ink-800 bg-black p-5">
               <p className="text-xs font-medium text-ink-500">{f.n}</p>
