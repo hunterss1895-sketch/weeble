@@ -45,7 +45,7 @@ export default async function UsagePage() {
         </div>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-ink-800">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-weeble-500 to-emerald-400"
+            className="h-full rounded-full bg-white"
             style={{ width: `${100 - usedPct}%` }}
           />
         </div>

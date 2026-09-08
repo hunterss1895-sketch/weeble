@@ -4,18 +4,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Flat minimal accent: white / soft gray (no yellow MVNO glow)
         weeble: {
-          50: "#fffbeb",
-          100: "#fef3c7",
-          200: "#fde68a",
-          300: "#fcd34d",
-          400: "#fbbf24",
-          500: "#f5c518",
-          600: "#d4a017",
-          700: "#a16207",
-          800: "#854d0e",
-          900: "#713f12",
-          950: "#422006",
+          50: "#fafafa",
+          100: "#f4f4f5",
+          200: "#e4e4e7",
+          300: "#d4d4d8",
+          400: "#a1a1aa",
+          500: "#fafafa",
+          600: "#e4e4e7",
+          700: "#a1a1aa",
+          800: "#52525b",
+          900: "#27272a",
+          950: "#18181b",
         },
         ink: {
           50: "#fafafa",
@@ -27,8 +28,8 @@ const config: Config = {
           600: "#52525b",
           700: "#3f3f46",
           800: "#27272a",
-          900: "#18181b",
-          950: "#0a0a0b",
+          900: "#141414",
+          950: "#000000",
         },
       },
     },

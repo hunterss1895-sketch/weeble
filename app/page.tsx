@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PlanCard } from '@/components/PlanCard';
-import { EsimCardProvider, getEsimProvider } from '@/lib/providers';
+import { CitrusProvider, getEsimProvider } from '@/lib/providers';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 
 export const dynamic = 'force-dynamic';
@@ -10,40 +10,38 @@ export default async function HomePage() {
   await ensureSeeded();
   const provider = getEsimProvider();
   let popular =
-    provider instanceof EsimCardProvider
+    provider instanceof CitrusProvider
       ? await provider.listPopularWeebleTiers().catch(() => [])
       : (await provider.listPlans()).filter((p) => p.popular).slice(0, 4);
 
-  if (!popular.length && !(provider instanceof EsimCardProvider)) {
+  if (!popular.length) {
     const all = await provider.listPlans();
     popular = all.filter((p) => p.isUs || p.popular).slice(0, 4);
   }
 
   return (
-    <div className="space-y-20">
-      <section className="relative overflow-hidden rounded-[2rem] border border-ink-800 bg-gradient-to-b from-ink-900 via-ink-950 to-ink-950 px-6 py-16 sm:px-12 sm:py-24">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-weeble-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 left-10 h-64 w-64 rounded-full bg-weeble-500/10 blur-3xl" />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <p className="mb-4 inline-flex rounded-full border border-weeble-500/40 bg-weeble-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-weeble-400">
-            US-first prepaid wireless
+    <div className="space-y-16">
+      <section className="rounded-lg border border-ink-800 bg-ink-950 px-6 py-16 sm:px-12 sm:py-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="mb-4 inline-flex rounded-md border border-ink-700 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-ink-400">
+            Pay-as-you-go eSIM
           </p>
-          <h1 className="text-balance text-5xl font-black tracking-tight text-ink-50 sm:text-6xl lg:text-7xl">
-            Wireless that&apos;s <span className="text-weeble-400">simple</span>.
+          <h1 className="text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Data credit. Anywhere.
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-lg text-ink-400 sm:text-xl">
-            Popular US Weeble plans up top — plus a full live catalog of destinations worldwide. Instant eSIM.
+          <p className="mx-auto mt-6 max-w-xl text-base text-ink-400 sm:text-lg">
+            Pick a country, fund your eSIM with $10–$100 of data credit, install with a QR. US first — 200+ destinations.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/plans"
-              className="rounded-full bg-weeble-500 px-8 py-4 text-base font-bold text-ink-950 hover:bg-weeble-400 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-weeble-400"
+              className="rounded-md bg-white px-7 py-3 text-sm font-semibold text-black hover:bg-ink-200 transition"
             >
-              Browse all plans
+              Browse countries
             </Link>
             <Link
               href="/auth"
-              className="rounded-full border border-weeble-500/50 px-8 py-4 text-base font-bold text-weeble-400 hover:bg-weeble-500/10 transition"
+              className="rounded-md border border-ink-700 px-7 py-3 text-sm font-semibold text-ink-300 hover:border-ink-500 hover:text-white transition"
             >
               Sign in
             </Link>
@@ -52,16 +50,16 @@ export default async function HomePage() {
       </section>
 
       <section id="plans">
-        <div className="mb-10 text-center">
-          <p className="text-sm font-bold uppercase tracking-[0.25em] text-weeble-400">Popular US</p>
-          <h2 className="mt-3 text-4xl font-black tracking-tight text-ink-50 sm:text-5xl">
-            Pick your data.
+        <div className="mb-8 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-500">United States</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Credit packs
           </h2>
-          <p className="mt-3 text-ink-400">
-            Quick Weeble US picks — see the full catalog for every destination.
+          <p className="mt-3 text-ink-500">
+            Retail price includes eSIM setup. Use credit until it runs out.
           </p>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {popular.map((p) => (
             <PlanCard key={p.id} plan={p} />
           ))}
@@ -69,40 +67,40 @@ export default async function HomePage() {
         <div className="mt-8 text-center">
           <Link
             href="/plans"
-            className="inline-flex rounded-full border border-weeble-500/40 px-6 py-3 text-sm font-bold text-weeble-400 hover:bg-weeble-500/10 transition"
+            className="inline-flex rounded-md border border-ink-700 px-5 py-2.5 text-sm font-medium text-ink-300 hover:border-ink-500 hover:text-white transition"
           >
-            View full catalog →
+            All countries →
           </Link>
         </div>
       </section>
 
-      <section id="how" className="rounded-[2rem] border border-ink-800 bg-ink-900/50 px-6 py-12 sm:px-10">
-        <h2 className="text-center text-3xl font-black text-ink-50 sm:text-4xl">
-          How <span className="text-weeble-400">Weeble</span> works
+      <section id="how" className="rounded-lg border border-ink-800 bg-ink-950 px-6 py-12 sm:px-10">
+        <h2 className="text-center text-2xl font-semibold text-white sm:text-3xl">
+          How Weeble works
         </h2>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
           {[
-            { n: '01', t: 'Choose a plan', d: 'Popular US tiers or search the full live catalog by country.' },
-            { n: '02', t: 'Get your eSIM', d: 'Buy and install with a QR code in minutes on a compatible phone.' },
-            { n: '03', t: 'Stay connected', d: 'Manage devices and data from your Weeble dashboard.' },
+            { n: '01', t: 'Choose credit', d: 'Pick a country and a $10 / $25 / $50 / $100 data credit pack.' },
+            { n: '02', t: 'Get your eSIM', d: 'We provision instantly and show a QR plus install link in your dashboard.' },
+            { n: '03', t: 'Stay connected', d: 'Data draws down from your credit at local rates until it runs out.' },
           ].map((f) => (
-            <div key={f.n} className="rounded-2xl border border-ink-800 bg-ink-950/60 p-6">
-              <p className="text-sm font-black text-weeble-400">{f.n}</p>
-              <h3 className="mt-2 text-xl font-bold text-ink-50">{f.t}</h3>
-              <p className="mt-2 text-sm text-ink-400">{f.d}</p>
+            <div key={f.n} className="rounded-lg border border-ink-800 bg-black p-5">
+              <p className="text-xs font-medium text-ink-500">{f.n}</p>
+              <h3 className="mt-2 text-lg font-semibold text-white">{f.t}</h3>
+              <p className="mt-2 text-sm text-ink-500">{f.d}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="rounded-[2rem] bg-weeble-500 px-8 py-14 text-center text-ink-950">
-        <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Ready when you are.</h2>
-        <p className="mx-auto mt-3 max-w-lg text-ink-950/80">
-          Join Weeble — prepaid wireless without the noise.
+      <section className="rounded-lg border border-ink-800 bg-white px-8 py-12 text-center text-black">
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Ready when you are.</h2>
+        <p className="mx-auto mt-3 max-w-lg text-ink-600">
+          Join Weeble — travel data without the noise.
         </p>
         <Link
           href="/plans"
-          className="mt-8 inline-flex rounded-full bg-ink-950 px-8 py-4 text-base font-bold text-weeble-400 hover:bg-ink-900 transition"
+          className="mt-8 inline-flex rounded-md bg-black px-7 py-3 text-sm font-semibold text-white hover:bg-ink-900 transition"
         >
           Get started
         </Link>

@@ -1,3 +1,4 @@
+import { CitrusProvider } from './citrus';
 import { DepinSimProvider } from './depinsim';
 import { EsimCardProvider } from './esimcard';
 import { FirstyProvider } from './firsty';
@@ -7,18 +8,20 @@ import type { EsimProvider } from './types';
 
 export type { EsimPlan, EsimProvider, PurchaseResult, UsageSummary, ProviderDevice } from './types';
 export { MockProvider } from './mock';
+export { CitrusProvider } from './citrus';
 export { DepinSimProvider } from './depinsim';
 export { EsimCardProvider } from './esimcard';
 export { FirstyProvider } from './firsty';
 export { TelnyxProvider } from './telnyx';
 
 /**
- * PROVIDER=esimcard|telnyx|firsty|mock|depinsim
- * Default: mock. Prefer eSIMCard when ESIMCARD_TOKEN is present (custom SPN reseller).
- * Telnyx / Firsty / DepinSim remain optional.
+ * PROVIDER=citrus|esimcard|telnyx|firsty|mock|depinsim
+ * Default: mock. Prefer Citrus when CITRUS_API_KEY is present.
+ * eSIMCard / Telnyx / Firsty / DepinSim remain optional (not called when citrus is active).
  */
 export function getEsimProvider(): EsimProvider {
   const forced = process.env.PROVIDER?.toLowerCase().trim();
+  const hasCitrus = CitrusProvider.hasCredentials();
   const hasEsimCard = EsimCardProvider.hasCredentials();
   const hasTelnyx = TelnyxProvider.hasCredentials();
   const hasFirsty = FirstyProvider.hasCredentials();
@@ -27,11 +30,16 @@ export function getEsimProvider(): EsimProvider {
   if (forced === 'mock') {
     return new MockProvider();
   }
+  if (forced === 'citrus') {
+    if (!hasCitrus) {
+      console.warn('[providers] PROVIDER=citrus but no CITRUS_API_KEY; empty live provider');
+    }
+    return new CitrusProvider();
+  }
   if (forced === 'esimcard') {
     if (!hasEsimCard) {
       console.warn('[providers] PROVIDER=esimcard but no ESIMCARD_TOKEN; empty live provider (no mock catalog)');
     }
-    // Always EsimCardProvider when forced — listPlans never leaks MockProvider catalog.
     return new EsimCardProvider();
   }
   if (forced === 'telnyx') {
@@ -56,7 +64,8 @@ export function getEsimProvider(): EsimProvider {
     return new DepinSimProvider(depinToken);
   }
 
-  // Auto: prefer eSIMCard (custom SPN) → Telnyx → Firsty → DepinSim → Mock
+  // Auto: prefer Citrus → eSIMCard → Telnyx → Firsty → DepinSim → Mock
+  if (hasCitrus) return new CitrusProvider();
   if (hasEsimCard) return new EsimCardProvider();
   if (hasTelnyx) return new TelnyxProvider();
   if (hasFirsty) return new FirstyProvider();

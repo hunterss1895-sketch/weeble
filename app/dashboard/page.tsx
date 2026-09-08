@@ -30,61 +30,61 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Data remaining</p>
-          <p className="mt-2 text-3xl font-black text-ink-50">{formatData(usage.dataRemainingMb)}</p>
-          <p className="text-xs text-ink-500">of {formatData(usage.dataTotalMb)} total</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Data remaining</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{formatData(usage.dataRemainingMb)}</p>
+          <p className="text-xs text-ink-600">of {formatData(usage.dataTotalMb)} total</p>
         </Card>
         <Card>
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Active plans</p>
-          <p className="mt-2 text-3xl font-black text-ink-50">{usage.activePlans}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Active plans</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{usage.activePlans}</p>
         </Card>
         <Card>
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Devices</p>
-          <p className="mt-2 text-3xl font-black text-ink-50">{devices}</p>
-          <Link href="/dashboard/devices" className="text-xs font-semibold text-weeble-400 hover:text-weeble-300">Manage →</Link>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Devices</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{devices}</p>
+          <Link href="/dashboard/devices" className="text-xs font-medium text-ink-400 hover:text-white">Manage →</Link>
         </Card>
         <Card>
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-weeble-400">Earned from ads</p>
-          <p className="mt-2 text-3xl font-black text-weeble-400">{formatData(adMb._sum.dataMb || 0)}</p>
-          <p className="text-xs text-ink-500">{adCount} rewards</p>
+          <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink-500">Earned from ads</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{formatData(adMb._sum.dataMb || 0)}</p>
+          <p className="text-xs text-ink-600">{adCount} rewards</p>
         </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink-50">Recent purchases</h2>
-            <Link href="/plans" className="text-sm font-semibold text-weeble-400 hover:text-weeble-300">Top up</Link>
+            <h2 className="text-base font-semibold text-white">Recent purchases</h2>
+            <Link href="/plans" className="text-sm font-medium text-ink-400 hover:text-white">Top up</Link>
           </div>
           {purchases.length === 0 ? (
-            <p className="text-sm text-ink-400">
+            <p className="text-sm text-ink-500">
               No plans yet.{' '}
-              <Link href="/plans" className="font-semibold text-weeble-400 hover:text-weeble-300">Browse Weeble plans</Link>
+              <Link href="/plans" className="font-medium text-ink-300 hover:text-white">Browse credit packs</Link>
             </p>
           ) : (
             <ul className="space-y-3">
               {purchases.map((p) => (
-                <li key={p.id} className="flex items-center justify-between rounded-2xl bg-ink-950/70 px-4 py-3 text-sm ring-1 ring-ink-800">
+                <li key={p.id} className="flex items-center justify-between rounded-md border border-ink-800 bg-black px-4 py-3 text-sm">
                   <div>
-                    <p className="font-semibold text-ink-50">{p.plan.name}</p>
-                    <p className="text-xs text-ink-500">{formatData(p.dataRemainingMb)} left · {p.status}</p>
+                    <p className="font-medium text-ink-100">{p.plan.name}</p>
+                    <p className="text-xs text-ink-600">{formatData(p.dataRemainingMb)} left · {p.status}</p>
                   </div>
-                  <span className="font-bold text-weeble-400">{formatPrice(p.plan.priceCents)}</span>
+                  <span className="font-medium text-ink-300">{formatPrice(p.plan.priceCents)}</span>
                 </li>
               ))}
             </ul>
           )}
         </Card>
-        <Card className="border-weeble-500/30">
-          <h2 className="mb-3 text-lg font-bold text-ink-50">Quick actions</h2>
+        <Card>
+          <h2 className="mb-3 text-base font-semibold text-white">Quick actions</h2>
           <div className="grid gap-2">
-            <Link href="/plans" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
-              Buy a Weeble plan
+            <Link href="/plans" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
+              Buy data credit
             </Link>
-            <Link href="/dashboard/earn" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
+            <Link href="/dashboard/earn" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
               Watch ads for free data
             </Link>
-            <Link href="/dashboard/devices" className="rounded-2xl border border-ink-700 bg-ink-950/50 px-4 py-3.5 text-sm font-semibold text-ink-200 hover:border-weeble-500/50 hover:text-weeble-400 transition">
+            <Link href="/dashboard/devices" className="rounded-md border border-ink-800 bg-black px-4 py-3 text-sm font-medium text-ink-300 hover:border-ink-600 hover:text-white transition">
               Install eSIM / view QR
             </Link>
           </div>

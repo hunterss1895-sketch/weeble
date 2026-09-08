@@ -14,10 +14,10 @@ export default async function AuthPage({
   return (
     <div className="mx-auto max-w-md">
       <div className="mb-8 text-center">
-        <p className="text-sm font-bold uppercase tracking-[0.25em] text-weeble-400">Account</p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight text-ink-50">Welcome to Weeble</h1>
-        <p className="mt-3 text-sm text-ink-400">
-          Sign in or create your Weeble account to buy a plan and manage your eSIM.
+        <p className="text-xs font-medium uppercase tracking-[0.25em] text-ink-500">Account</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">Welcome to Weeble</h1>
+        <p className="mt-3 text-sm text-ink-500">
+          Sign in or create your Weeble account to buy data credit and manage your eSIM.
         </p>
       </div>
       <AuthForm next={next || '/dashboard'} />

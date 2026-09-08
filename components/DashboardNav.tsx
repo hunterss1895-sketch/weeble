@@ -22,10 +22,10 @@ export function DashboardNav() {
             key={l.href}
             href={l.href}
             className={cn(
-              'rounded-full px-4 py-2 text-sm font-bold transition',
+              'rounded-md px-3.5 py-2 text-sm font-medium transition',
               active
-                ? 'bg-weeble-500 text-ink-950'
-                : 'bg-ink-900 text-ink-300 ring-1 ring-ink-800 hover:text-weeble-400 hover:ring-weeble-500/40'
+                ? 'bg-white text-black'
+                : 'border border-ink-800 bg-ink-950 text-ink-400 hover:border-ink-600 hover:text-white'
             )}
           >
             {l.label}

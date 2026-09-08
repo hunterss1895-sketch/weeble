@@ -41,8 +41,7 @@ export function AdPlayer({
     const pct = ((DURATION - left) / DURATION) * 100;
     return (
       <div className="overflow-hidden rounded-2xl border border-ink-800 bg-ink-950 text-white shadow-lg">
-        <div className="relative flex aspect-video items-center justify-center bg-gradient-to-br from-weeble-800 via-ink-950 to-ink-900">
-          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(circle at 30% 40%, #f5c518 0, transparent 40%), radial-gradient(circle at 70% 60%, #d4a017 0, transparent 35%)' }} />
+        <div className="relative flex aspect-video items-center justify-center bg-ink-950">
           <div className="relative z-10 text-center">
             <p className="text-xs uppercase tracking-widest text-weeble-200">Weeble reward video</p>
             <p className="mt-2 text-4xl font-bold tabular-nums">{left}s</p>

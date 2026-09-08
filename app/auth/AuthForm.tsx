@@ -35,15 +35,15 @@ export function AuthForm({ next }: { next: string }) {
   }
 
   return (
-    <Card className="border-weeble-500/30">
-      <div className="mb-5 flex rounded-full bg-ink-950 p-1 ring-1 ring-ink-800">
+    <Card className="border-ink-800">
+      <div className="mb-5 flex rounded-md border border-ink-800 bg-black p-1">
         {(['signin', 'signup'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`flex-1 rounded-full py-2.5 text-sm font-bold transition ${
-              mode === m ? 'bg-weeble-500 text-ink-950' : 'text-ink-400 hover:text-weeble-400'
+            className={`flex-1 rounded-md py-2.5 text-sm font-medium transition ${
+              mode === m ? 'bg-white text-black' : 'text-ink-500 hover:text-white'
             }`}
           >
             {m === 'signin' ? 'Sign in' : 'Sign up'}
