@@ -17,8 +17,12 @@ export type EsimPlan = {
 export type PurchaseResult = {
   purchaseId: string;
   iccid: string;
+  /** LPA activation string (and optional install URL lines). */
   activationCode: string;
+  /** Short string safe to encode in a QR (usually LPA:1$...). Never a PNG data URL. */
   qrPayload: string;
+  /** Optional provider-rendered QR image (data:image/... or https URL). */
+  qrImage?: string | null;
   dataTotalMb: number;
   expiresAt: Date;
 };

@@ -5,6 +5,7 @@ import { Badge, Card } from '@/components/ui';
 import { QrDisplay } from '@/components/QrDisplay';
 import { DeviceActions } from './DeviceActions';
 import { formatData, formatDate } from '@/lib/utils';
+import { extractLpaString, pickQrImage, isSafeQrCodeValue } from '@/lib/esim-qr';
 
 export default async function DevicesPage({
   searchParams,
@@ -43,8 +44,17 @@ export default async function DevicesPage({
           {devices.map((d) => {
             const raw = d.purchase?.activationCode || '';
             const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
-            const lpa = lines.find((l) => l.startsWith('LPA:')) || lines[0] || '';
+            const lpa =
+              extractLpaString(raw, d.purchase?.qrPayload) ||
+              lines.find((l) => l.startsWith('LPA:')) ||
+              lines[0] ||
+              '';
             const installUrl = lines.find((l) => /^https?:\/\//i.test(l));
+            const qrImage = pickQrImage(d.purchase?.qrImage, d.purchase?.qrPayload);
+            const qrForDisplay =
+              (isSafeQrCodeValue(lpa) && lpa) ||
+              qrImage ||
+              (isSafeQrCodeValue(d.purchase?.qrPayload) ? d.purchase!.qrPayload! : '');
             return (
               <Card key={d.id} className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
@@ -100,8 +110,8 @@ export default async function DevicesPage({
                   <DeviceActions id={d.id} nickname={d.nickname} status={d.status} />
                 </div>
                 <div className="flex flex-col items-center justify-center">
-                  {d.purchase?.qrPayload ? (
-                    <QrDisplay payload={d.purchase.qrPayload} />
+                  {qrForDisplay ? (
+                    <QrDisplay payload={qrForDisplay} lpaHint={lpa || undefined} />
                   ) : (
                     <p className="text-sm text-ink-600">No QR available</p>
                   )}

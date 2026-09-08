@@ -153,8 +153,35 @@ function useLiveEsimCard(): boolean {
   return forced === 'esimcard' && hasToken;
 }
 
+
+async function repairQrPayloadImages() {
+  try {
+    const rows = await prisma.purchase.findMany({
+      where: { OR: [{ qrPayload: { startsWith: 'data:image' } }, { qrPayload: { startsWith: 'http' } }] },
+      select: { id: true, qrPayload: true, qrImage: true, activationCode: true },
+    });
+    for (const row of rows) {
+      const raw = row.qrPayload || '';
+      if (!raw.startsWith('data:image') && !/^https?:\/\//i.test(raw)) continue;
+      const lines = (row.activationCode || '').split('\n').map((s) => s.trim()).filter(Boolean);
+      const lpa = lines.find((l) => l.startsWith('LPA:')) || lines[0] || '';
+      await prisma.purchase.update({
+        where: { id: row.id },
+        data: {
+          qrImage: row.qrImage || raw,
+          qrPayload: lpa || null,
+        },
+      });
+    }
+    if (rows.length) console.info(`[db] repaired ${rows.length} purchase QR image payload(s)`);
+  } catch (e) {
+    console.warn('[db] QR payload repair skipped', e);
+  }
+}
+
 export async function ensureSeeded() {
   if (seeded) return;
+  await repairQrPayloadImages();
   try {
     if (useLiveEsimCard()) {
       // Live eSIMCard: do NOT re-upsert mock catalog. Hide leftover mock rows from any DB readers

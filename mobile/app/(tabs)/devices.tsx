@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
+  Pressable,
   RefreshControl,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -12,6 +16,107 @@ import QRCode from 'react-native-qrcode-svg';
 import { Badge, Card, Muted, Screen, Subtitle, Title } from '@/components/ui';
 import { fetchDevices, type Device } from '@/lib/api';
 import { colors, formatData } from '@/lib/theme';
+
+const QR_MAX_LEN = 2000;
+
+function isImageUri(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim();
+  return v.startsWith('data:image') || /^https?:\/\//i.test(v);
+}
+
+function isSafeQrValue(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim();
+  if (!v) return false;
+  if (v.startsWith('data:')) return false;
+  if (v.length > QR_MAX_LEN) return false;
+  if (v.startsWith('{') || v.startsWith('[')) return false;
+  return true;
+}
+
+/** Prefer short LPA activation string — never a Citrus PNG data URL. */
+function resolveInstallString(device: Device): string | null {
+  const candidates = [
+    device.lpa,
+    device.lpaString,
+    device.lpa_string,
+    device.activationCode,
+    device.qrPayload,
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    const line =
+      c
+        .split('\n')
+        .map((s) => s.trim())
+        .find((l) => l.startsWith('LPA:')) || c.trim().split('\n')[0]?.trim();
+    if (line && isSafeQrValue(line)) return line;
+  }
+  return null;
+}
+
+function resolveQrImage(device: Device): string | null {
+  const candidates = [device.qrImage, device.qrCode, device.qr_code, device.qrPayload];
+  for (const c of candidates) {
+    if (c && isImageUri(c)) return c.trim();
+  }
+  return null;
+}
+
+async function copyInstallString(text: string) {
+  try {
+    await Share.share({ message: text, title: 'eSIM install string' });
+  } catch {
+    Alert.alert('Install string', text);
+  }
+}
+
+function DeviceQr({ device }: { device: Device }) {
+  const installString = resolveInstallString(device);
+  const qrImage = resolveQrImage(device);
+
+  if (installString) {
+    return (
+      <View style={styles.qrWrap}>
+        <View style={styles.qrBg}>
+          <QRCode value={installString} size={180} backgroundColor="#fff" color="#000" />
+        </View>
+        <Muted>Scan in Settings → Cellular → Add eSIM</Muted>
+        <Text style={[styles.mono, { fontSize: 11, textAlign: 'center' }]}>{installString}</Text>
+        <Pressable onPress={() => copyInstallString(installString)} style={styles.copyBtn}>
+          <Text style={styles.copyText}>Share / copy install string</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (qrImage) {
+    return (
+      <View style={styles.qrWrap}>
+        <View style={styles.qrBg}>
+          <Image source={{ uri: qrImage }} style={{ width: 180, height: 180 }} resizeMode="contain" />
+        </View>
+        <Muted>Scan in Settings → Cellular → Add eSIM</Muted>
+      </View>
+    );
+  }
+
+  const fallback = (device.activationCode || device.qrPayload || '').trim();
+  if (fallback && !isImageUri(fallback) && fallback.length <= QR_MAX_LEN) {
+    return (
+      <View style={styles.qrWrap}>
+        <Muted>Install string</Muted>
+        <Text style={[styles.mono, { fontSize: 11, textAlign: 'center' }]}>{fallback}</Text>
+        <Pressable onPress={() => copyInstallString(fallback)} style={styles.copyBtn}>
+          <Text style={styles.copyText}>Share / copy install string</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return <Muted>No QR available</Muted>;
+}
 
 export default function DevicesScreen() {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -99,22 +204,13 @@ export default function DevicesScreen() {
                   </Text>
                 </>
               ) : null}
-              {item.activationCode ? (
+              {resolveInstallString(item) ? (
                 <>
                   <Text style={styles.label}>Activation</Text>
-                  <Text style={[styles.mono, { fontSize: 11 }]}>{item.activationCode}</Text>
+                  <Text style={[styles.mono, { fontSize: 11 }]}>{resolveInstallString(item)}</Text>
                 </>
               ) : null}
-              {item.qrPayload ? (
-                <View style={styles.qrWrap}>
-                  <View style={styles.qrBg}>
-                    <QRCode value={item.qrPayload} size={180} backgroundColor="#fff" color="#000" />
-                  </View>
-                  <Muted>Scan in Settings → Cellular → Add eSIM</Muted>
-                </View>
-              ) : (
-                <Muted>No QR available</Muted>
-              )}
+              <DeviceQr device={item} />
             </Card>
           )}
         />
@@ -147,5 +243,14 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
+  copyBtn: {
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  copyText: { color: colors.text, fontSize: 13, fontWeight: '600' },
   retry: { color: colors.text, marginTop: 12, fontWeight: '600', fontSize: 14 },
 });

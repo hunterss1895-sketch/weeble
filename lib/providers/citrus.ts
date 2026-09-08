@@ -503,7 +503,7 @@ export class CitrusProvider implements EsimProvider {
     });
 
     const lpa = String(provisioned.lpa_string || '').trim();
-    const qrImage = String(provisioned.qr_code || '').trim();
+    const qrCodeRaw = String(provisioned.qr_code || '').trim();
     const installUrl = String(provisioned.direct_install_url || '').trim();
 
     let activationCode = lpa || installUrl || `WEEBLE-${iccid.slice(-8)}`;
@@ -511,9 +511,14 @@ export class CitrusProvider implements EsimProvider {
       activationCode = `${lpa}\n${installUrl}`;
     }
 
-    const qrPayload = qrImage.startsWith('data:image')
-      ? qrImage
-      : lpa || qrImage || activationCode;
+    // Citrus qr_code is often a huge base64 PNG data URL — never store that as the
+    // QR payload (mobile react-native-qrcode-svg would crash). Keep LPA as qrPayload.
+    const qrImage =
+      qrCodeRaw.startsWith('data:image') || /^https?:\/\//i.test(qrCodeRaw)
+        ? qrCodeRaw
+        : '';
+    const qrPayload =
+      lpa || (!qrImage ? qrCodeRaw : '') || activationCode.split('\n')[0] || activationCode;
 
     const expiresAt = new Date(Date.now() + plan.validityDays * 86400000);
     const ledgerMb =
@@ -566,6 +571,7 @@ export class CitrusProvider implements EsimProvider {
         status: 'active',
         activationCode,
         qrPayload,
+        qrImage: qrImage || null,
         iccid,
         dataRemainingMb: ledgerMb,
         dataTotalMb: ledgerMb,
@@ -595,6 +601,7 @@ export class CitrusProvider implements EsimProvider {
       iccid,
       activationCode,
       qrPayload,
+      qrImage: qrImage || null,
       dataTotalMb: ledgerMb,
       expiresAt,
     };

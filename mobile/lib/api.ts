@@ -22,8 +22,17 @@ export type Device = {
   nickname: string;
   status: string;
   iccid: string;
+  /** Short LPA string safe for QRCode encoding (never a PNG data URL). */
   qrPayload: string | null;
+  /** Same as qrPayload / activation LPA when present. */
+  lpa?: string | null;
+  lpaString?: string | null;
+  lpa_string?: string | null;
   activationCode: string | null;
+  /** Provider QR image (data:image/... or https) — render with Image, not QRCode. */
+  qrImage?: string | null;
+  qrCode?: string | null;
+  qr_code?: string | null;
   installUrl: string | null;
   plan: { id: string; name: string; dataMb: number; region: string } | null;
   dataRemainingMb: number | null;
@@ -114,6 +123,7 @@ export async function purchasePlan(planId: string) {
     iccid: string;
     qrPayload: string;
     activationCode: string;
+    qrImage?: string | null;
   }>('/api/purchase', {
     method: 'POST',
     body: JSON.stringify({ planId }),

@@ -45,6 +45,7 @@ model Purchase {
   status          String   @default("active")
   activationCode  String?
   qrPayload       String?
+  qrImage         String?
   iccid           String?
   dataRemainingMb Int
   dataTotalMb     Int

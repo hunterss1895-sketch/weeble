@@ -1,8 +1,16 @@
 'use client';
 
-/** Renders a real PNG data-URL QR when provided; otherwise a deterministic SVG stand-in. */
-export function QrDisplay({ payload, size = 180 }: { payload: string; size?: number }) {
-  if (payload.startsWith('data:image')) {
+/** Renders a real PNG data-URL / https QR image when provided; otherwise a deterministic SVG stand-in from an LPA string. */
+export function QrDisplay({
+  payload,
+  size = 180,
+  lpaHint,
+}: {
+  payload: string;
+  size?: number;
+  lpaHint?: string;
+}) {
+  if (payload.startsWith('data:image') || /^https?:\/\//i.test(payload)) {
     return (
       <div className="inline-flex flex-col items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -14,6 +22,9 @@ export function QrDisplay({ payload, size = 180 }: { payload: string; size?: num
           className="rounded-md border border-ink-800 bg-white p-2"
         />
         <p className="text-center text-[10px] text-ink-600">Scan to install eSIM</p>
+        {lpaHint ? (
+          <p className="max-w-[220px] break-all text-center font-mono text-[10px] text-ink-600">{lpaHint}</p>
+        ) : null}
       </div>
     );
   }
@@ -39,7 +50,7 @@ export function QrDisplay({ payload, size = 180 }: { payload: string; size?: num
   setBlock(cells - 7, 0);
   setBlock(0, cells - 7);
 
-  const lpaLine = payload.split('\n')[0];
+  const lpaLine = (lpaHint || payload).split('\n')[0];
 
   return (
     <div className="inline-flex flex-col items-center gap-2">

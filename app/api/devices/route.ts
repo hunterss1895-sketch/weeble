@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db/prisma';
 import { ensureSeeded } from '@/lib/db/seed-on-boot';
 import { jsonCors, optionsCors } from '@/lib/cors';
+import { extractLpaString, pickQrImage, isSafeQrCodeValue } from '@/lib/esim-qr';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +23,23 @@ export async function GET(req: NextRequest) {
   });
 
   const payload = devices.map((d) => {
-    const raw = d.purchase?.activationCode || '';
-    const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
-    const lpa = lines.find((l) => l.startsWith('LPA:')) || lines[0] || '';
+    const rawActivation = d.purchase?.activationCode || '';
+    const rawQr = d.purchase?.qrPayload || null;
+    // qrImage may be missing on older rows; fall back if qrPayload was wrongly a PNG.
+    const qrImage = pickQrImage(d.purchase?.qrImage, rawQr);
+    const lpa = extractLpaString(rawActivation, rawQr);
+    const lines = rawActivation
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const installUrl = lines.find((l) => /^https?:\/\//i.test(l)) || null;
+    // qrPayload for clients that encode a QR: always the short LPA when available.
+    const qrPayload = isSafeQrCodeValue(lpa)
+      ? lpa
+      : isSafeQrCodeValue(rawQr)
+        ? (rawQr as string)
+        : null;
+
     return {
       id: d.id,
       nickname: d.nickname,
@@ -33,8 +47,17 @@ export async function GET(req: NextRequest) {
       iccid: d.iccid,
       installedAt: d.installedAt,
       createdAt: d.createdAt,
-      qrPayload: d.purchase?.qrPayload || null,
+      /** Short LPA string safe for <QRCode value={...} /> */
+      qrPayload,
+      /** Alias for clients expecting lpa / lpaString / lpa_string */
+      lpa,
+      lpaString: lpa,
+      lpa_string: lpa,
       activationCode: lpa || null,
+      /** Optional provider PNG/data-URL or https image — render with <Image>, not QRCode */
+      qrImage,
+      qr_code: qrImage,
+      qrCode: qrImage,
       installUrl,
       plan: d.purchase?.plan
         ? {

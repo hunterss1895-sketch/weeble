@@ -356,11 +356,18 @@ export class FirstyProvider implements EsimProvider {
       const activationCode = String(
         detail.activation_code || detail.activationCode || detail.lpa || ''
       );
+      const qrCodeRaw = String(detail.qr || detail.qr_code || '').trim();
+      const qrImage =
+        qrCodeRaw.startsWith('data:image') || /^https?:\/\//i.test(qrCodeRaw)
+          ? qrCodeRaw
+          : '';
       const qrPayload = activationCode.startsWith('LPA:')
         ? activationCode
-        : detail.qr || detail.qr_code
-          ? String(detail.qr || detail.qr_code)
-          : `LPA:1$firsty.app$${activationCode || iccid}`;
+        : activationCode
+          ? `LPA:1$firsty.app$${activationCode}`
+          : qrImage
+            ? `LPA:1$firsty.app$${iccid}`
+            : qrCodeRaw || `LPA:1$firsty.app$${iccid}`;
       const expiresAt = new Date(Date.now() + plan.validityDays * 86400000);
 
       // Persist locally so dashboard/devices/usage keep working.
@@ -398,6 +405,7 @@ export class FirstyProvider implements EsimProvider {
           status: 'active',
           activationCode,
           qrPayload,
+          qrImage: qrImage || null,
           iccid,
           dataRemainingMb: plan.dataMb,
           dataTotalMb: plan.dataMb,
@@ -420,6 +428,7 @@ export class FirstyProvider implements EsimProvider {
         iccid,
         activationCode,
         qrPayload,
+        qrImage: qrImage || null,
         dataTotalMb: plan.dataMb,
         expiresAt,
       };
